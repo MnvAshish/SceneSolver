@@ -1,0 +1,12 @@
+Flask
+gunicorn
+torch
+transformers
+Pillow
+opencv-python
+sentencepiece
+timm
+numpy
+ultralytics
+requests
+pymongo
