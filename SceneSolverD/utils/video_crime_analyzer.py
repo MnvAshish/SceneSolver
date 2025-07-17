@@ -123,7 +123,7 @@ def detect_objects_batch(frames_batch: List[Any], yolo_model: YOLO) -> List[List
     print("DEBUG: Finished YOLO object detection batch inference.")
     return all_detected_objs
 
-def process_video(video_path: str, classifier_model: CLIPCrimeClassifier, binary_classifier_model: CLIPCrimeClassifier,
+def analyze_frame_batch(video_path: str, classifier_model: CLIPCrimeClassifier, binary_classifier_model: CLIPCrimeClassifier,
                   blip_processor: BlipProcessor, blip_model: BlipForConditionalGeneration, yolo_model: YOLO,
                   clip_transform: T.Compose, device: torch.device) -> Dict[str, Any]:
     """
