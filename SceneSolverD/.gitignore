@@ -1,0 +1,23 @@
+# Python cache and logs
+__pycache__/
+*.pyc
+*.pyo
+*.log
+
+# Model weights and runtime downloads
+models/*.pt
+models/*.pth
+models/*.zip
+models/blip_finetuned_crime/
+models/*.safetensors
+
+# Prevent pushing temp directories
+/tmp/
+.cache/
+
+# Env and secrets
+.env
+
+# VSCode and OS files
+.vscode/
+.DS_Store
