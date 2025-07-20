@@ -15,7 +15,7 @@ from ultralytics import YOLO # Ensure YOLO is imported globally here
 from collections import Counter # Moved Counter import here to ensure it's always available
 from model_loader import ensure_models_downloaded
 from ultralytics import YOLO
-from utils.video_crime_analyzer import video_crime_analyzer
+from utils.video_crime_analyzer import analyze_frame_batch
 
 
 model_paths = ensure_models_downloaded()
