@@ -247,19 +247,30 @@ def aggregate_labels(labels: list, confs: list) -> Tuple[str, float]:
             return f"Mixed Incident (featuring {most_common_label})", dominance
 
 def summarize_captions(caps: list, summarizer: pipeline, overall_crime_class: str) -> str:
-    """Summarizes a list of captions, with special handling for normal videos."""
-    if "Normal Activity" in overall_crime_class:
+    """Summarizes a list of captions, dynamically adjusting to input length."""
+    if "Normal Activity" in overall_crime_class or "Normal" in overall_crime_class:
         return "The video footage was analyzed and determined to show routine activities with no significant crime-related events detected."
 
-    text = " ".join(dict.fromkeys(cap for cap in caps if cap != "Normal activity observed."))
-    if not text.strip():
-        return "No specific details could be extracted from the scene."
+    # 1. Remove duplicate sentences! (This stops the weird repetitive looping)
+    unique_caps = list(set(caps))
+    text = " ".join(unique_caps)
     
+    if not text or text == "Normal activity observed.":
+        return "No specific details could be extracted from the scene."
+
+    # 2. Count the words to fix the terminal warning
+    word_count = len(text.split())
+
+    # 3. If the input is too short, BART will hallucinate. Just return the unique text!
+    if word_count < 25:
+        return text 
+
     try:
-        if summarizer is None:
-            return (text[:750] + "...") if len(text) > 750 else text
+        # 4. Dynamically adjust max_length so it doesn't force a long output
+        dynamic_max = min(120, int(word_count * 1.5))
+        dynamic_min = min(30, int(word_count * 0.5))
         
-        summary = summarizer(text, max_length=120, min_length=30, do_sample=False)[0]["summary_text"]
+        summary = summarizer(text, max_length=dynamic_max, min_length=dynamic_min, do_sample=False)[0]["summary_text"]
         return summary
     except Exception as e:
         print(f"⚠️ Summarization failed: {e}. Returning raw text.", file=sys.stderr)

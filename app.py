@@ -45,11 +45,26 @@ except Exception as e:
     print(f"CRITICAL ERROR: Could not connect to MongoDB Atlas: {e}", file=sys.stderr)
     sys.exit(1)
 
-# --- Global Model Variables ---
-GLOBAL_MODELS = {}
+# --- Global Model Variables & Immediate Loading ---
+# FIX: Moved model loading outside of __main__ so it runs when using `flask run`
+print("--- Initializing SceneSolver Models ---")
+preferred_device = "cuda" if torch.cuda.is_available() else "cpu"
+
+try:
+    GLOBAL_MODELS = load_all(device=preferred_device)
+    clip_transform_global = T.Compose([
+        T.Resize((224, 224), interpolation=T.InterpolationMode.BICUBIC),
+        T.ToTensor(),
+        T.Normalize(mean=CLIP_MEAN, std=CLIP_STD)
+    ])
+    print("✅ All Base Models Loaded Successfully!")
+except Exception as e:
+    print(f"CRITICAL ERROR: Failed to load models: {e}", file=sys.stderr)
+    GLOBAL_MODELS = {} # Prevent complete crash on boot, will fail later gracefully
+    clip_transform_global = None
+
 SUMMARIZER_MODEL_NAME = "facebook/bart-large-cnn"
 summarizer_pipeline_global = None
-clip_transform_global = None
 
 def load_summarizer_if_needed():
     global summarizer_pipeline_global
@@ -70,7 +85,6 @@ def load_summarizer_if_needed():
     return summarizer_pipeline_global
 
 # --- All Flask Routes ---
-# (Your routes like /signin, /register, /index, etc. go here, unchanged from before)
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -86,7 +100,6 @@ def home():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    # This function remains unchanged
     if request.method == 'POST':
         username = request.form['username'].strip()
         password = request.form['password']
@@ -108,7 +121,6 @@ def register():
 
 @app.route('/signin', methods=['GET', 'POST'])
 def signin():
-    # This function remains unchanged
     if request.method == 'POST':
         username = request.form['username'].strip()
         password = request.form['password']
@@ -126,7 +138,6 @@ def signin():
 
 @app.route('/logout')
 def logout():
-    # This function remains unchanged
     session.clear()
     flash('You have been logged out.', 'success')
     return redirect(url_for('signin'))
@@ -134,13 +145,11 @@ def logout():
 @app.route('/frontpage')
 @login_required
 def frontpage():
-    # This function remains unchanged
     return render_template('frontpage.html', username=session.get('username'))
 
 @app.route('/index', methods=['GET', 'POST'])
 @login_required
 def index():
-    # This function remains unchanged
     if request.method == 'POST':
         if 'video_file' not in request.files:
             flash('No file part in the request.', 'error')
@@ -159,6 +168,10 @@ def index():
             try:
                 start_time = time.time()
                 print(f"\n--- Starting Analysis for: {filename} ---")
+
+                # Double check if models loaded properly before proceeding
+                if "classifier_model" not in GLOBAL_MODELS:
+                    raise KeyError("Models were not loaded properly. Check terminal for startup errors.")
 
                 analysis_result = process_video(
                     video_path=video_path, 
@@ -231,7 +244,6 @@ def index():
 @app.route('/result')
 @login_required
 def result():
-    # This function remains unchanged
     analysis_data = session.pop('analysis_results', None)
     if not analysis_data:
         flash('No analysis results found. Please upload a video first.', 'error')
@@ -241,13 +253,11 @@ def result():
 @app.route('/uploads/<filename>')
 @login_required
 def uploaded_file(filename):
-    # This function remains unchanged
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/history')
 @login_required
 def history():
-    # This function remains unchanged
     username = session.get('username')
     try:
         user_history = list(analysis_history.find({'username': username}).sort('upload_time', -1))
@@ -260,7 +270,6 @@ def history():
 @app.route('/feedback', methods=['GET', 'POST'])
 @login_required
 def feedback():
-    # This function remains unchanged
     if request.method == 'POST':
         feedback_text = request.form.get('feedback')
         if not feedback_text:
@@ -278,26 +287,5 @@ def feedback():
     return render_template('feedback.html', username=session.get('username'))
 
 # --- Main Execution Block ---
-# In app.py
-
-# ... (all your routes and functions) ...
-
-# --- Main Execution Block ---
 if __name__ == '__main__':
-    print("--- Initializing SceneSolver ---")
-    
-    preferred_device = "cuda" if torch.cuda.is_available() else "cpu"
-    
-    GLOBAL_MODELS = load_all(device=preferred_device)
-    
-    clip_transform_global = T.Compose([
-        T.Resize((224, 224), interpolation=T.InterpolationMode.BICUBIC),
-        T.ToTensor(),
-        T.Normalize(mean=CLIP_MEAN, std=CLIP_STD)
-    ])
-
-    print("--- All models loaded. ---")
-    print("--- To run the application, use a WSGI server like Gunicorn: ---")
-    print("--- Example: gunicorn --workers 3 --bind 0.0.0.0:5000 app:app ---")
-
-# REMOVE the app.run(...) line from here
+    app.run(debug=True)
