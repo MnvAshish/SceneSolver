@@ -9,6 +9,7 @@ from collections import Counter
 from ultralytics import YOLO
 from typing import Tuple, List, Dict, Any
 
+
 # --- Project Setup ---
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
@@ -165,13 +166,13 @@ def _process_frame_batch(
 # --- THIS IS THE OTHER CHANGED LINE ---
 # Updated the type hint for binary_classifier_model
 def process_video(
-    video_path: str, classifier_model: CLIPMultiClassClassifier, binary_classifier_model: CLIPMultiClassClassifier,
-    blip_processor: BlipProcessor, blip_model: Any, yolo_model: YOLO,
-    clip_transform: T.Compose, device: torch.device
+    video_path: str, classifier_model: Any, binary_classifier_model: Any,
+    blip_processor: Any, blip_model: Any, yolo_model: Any,
+    clip_transform: Any, device: Any
 ) -> Dict[str, Any]:
-# --- END OF CHANGE ---
     """
-    Processes a video by analyzing frames at a set interval using batch processing.
+    Processes a video by analyzing frames at a set interval using batch processing
+    and an OpenCV Zero-Compute Motion Pre-Filter.
     """
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -182,31 +183,63 @@ def process_video(
     results = {"frame_labels": [], "frame_confs": [], "detected_objects": [], "captions": [], "video_fps": fps}
     frame_idx, BATCH_SIZE = 0, 8
     pil_images_batch, cv_frames_batch, frame_indices_batch = [], [], []
+    
+    # --- Motion Detection Initialization ---
+    prev_gray_frame = None
+    MOTION_THRESHOLD = 500  # Adjust this: higher means it ignores small movements
 
     while True:
         ret, frame = cap.read()
         if not ret: break
 
         if frame_idx % FRAME_INTERVAL == 0:
-            pil_img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            pil_images_batch.append(pil_img)
-            cv_frames_batch.append(frame)
-            frame_indices_batch.append(frame_idx)
+            
+            # --- 1. OpenCV Zero-Compute Motion Filter ---
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray = cv2.GaussianBlur(gray, (21, 21), 0)
+            motion_detected = True 
+            
+            if prev_gray_frame is not None:
+                frame_delta = cv2.absdiff(prev_gray_frame, gray)
+                thresh = cv2.threshold(frame_delta, 25, 255, cv2.THRESH_BINARY)[1]
+                movement_score = cv2.countNonZero(thresh)
+                
+                if movement_score < MOTION_THRESHOLD:
+                    motion_detected = False
+                    print(f"DEBUG: Frame {frame_idx} skipped (No Motion. Score: {movement_score})")
 
-            if len(pil_images_batch) >= BATCH_SIZE:
-                batch_output = _process_frame_batch(
-                    pil_images_batch, cv_frames_batch, frame_indices_batch,
-                    classifier_model, binary_classifier_model, blip_processor, blip_model, yolo_model,
-                    clip_transform, device
-                )
-                results["frame_labels"].extend(batch_output["labels"])
-                results["frame_confs"].extend(batch_output["confs"])
-                results["captions"].extend(batch_output["captions"])
-                results["detected_objects"].extend(batch_output["objects"])
-                pil_images_batch, cv_frames_batch, frame_indices_batch = [], [], []
+            prev_gray_frame = gray 
+            
+            # --- 2. Conditional Routing ---
+            if not motion_detected:
+                # Bypass the AI models entirely for this frame
+                results["frame_labels"].append("Normal Activity")
+                results["frame_confs"].append(1.0)
+                results["captions"].append("No significant movement detected in the scene.")
+                results["detected_objects"].append([]) # Keep array lengths aligned!
+            else:
+                # Motion detected! Add to batch for Heavy AI processing
+                pil_img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                pil_images_batch.append(pil_img)
+                cv_frames_batch.append(frame)
+                frame_indices_batch.append(frame_idx)
+
+                # Process batch if full
+                if len(pil_images_batch) >= BATCH_SIZE:
+                    batch_output = _process_frame_batch(
+                        pil_images_batch, cv_frames_batch, frame_indices_batch,
+                        classifier_model, binary_classifier_model, blip_processor, blip_model, yolo_model,
+                        clip_transform, device
+                    )
+                    results["frame_labels"].extend(batch_output["labels"])
+                    results["frame_confs"].extend(batch_output["confs"])
+                    results["captions"].extend(batch_output["captions"])
+                    results["detected_objects"].extend(batch_output["objects"])
+                    pil_images_batch, cv_frames_batch, frame_indices_batch = [], [], []
 
         frame_idx += 1
 
+    # --- 3. Process any remaining frames in the final batch ---
     if pil_images_batch:
         batch_output = _process_frame_batch(
             pil_images_batch, cv_frames_batch, frame_indices_batch,
