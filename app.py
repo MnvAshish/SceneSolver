@@ -28,6 +28,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'a_default_fallback_key_for_dev')
 app.permanent_session_lifetime = timedelta(hours=1)
 app.config['UPLOAD_FOLDER'] = os.path.join(PROJECT_ROOT, 'static', 'uploads')
+app.config['CLIPS_FOLDER'] = os.path.join(PROJECT_ROOT, 'static', 'uploads', 'clips')
+os.makedirs(os.path.join(PROJECT_ROOT, 'static', 'uploads', 'clips'), exist_ok=True)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # --- Database Connection ---
@@ -172,7 +174,7 @@ def index():
         if stream_url:
             video_source = 0 if stream_url == '0' else stream_url
             filename = f"stream_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            max_frames_to_process = 900  # ~30 seconds at 30fps
+            max_frames_to_process = 300  # ~30 seconds at 30fps
             is_stream = True
 
         elif video_file and video_file.filename != '':
@@ -201,7 +203,8 @@ def index():
                 yolo_model=GLOBAL_MODELS["yolo_model"],
                 clip_transform=clip_transform_global,
                 device=GLOBAL_MODELS["device"],
-                max_frames=max_frames_to_process
+                max_frames=max_frames_to_process,
+                clips_output_dir=app.config['CLIPS_FOLDER']
             )
 
             if not analysis_result or not analysis_result.get("captions"):
@@ -249,7 +252,8 @@ def index():
                 'summary': video_summary,
                 'analysis_duration': f"{total_duration:.2f}",
                 'video_url': safe_video_url,
-                'is_stream': is_stream
+                'is_stream': is_stream,
+                'crime_clips': analysis_result.get('crime_clips', [])
             }
 
             analysis_history.insert_one({
@@ -288,6 +292,11 @@ def result():
 @login_required
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/clips/<filename>')
+@login_required
+def serve_clip(filename):
+    return send_from_directory(app.config['CLIPS_FOLDER'], filename)
 
 @app.route('/history')
 @login_required

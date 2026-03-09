@@ -237,47 +237,99 @@
         <!-- Result Container -->
         <main class="glass-card rounded-3xl shadow-2xl p-6 sm:p-10">
             <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12 items-start">
-                <div class="w-full lg:col-span-2">
-                    <h2 class="text-2xl font-semibold text-white mb-4">Analyzed Media</h2>
-                    <div id="analyzedMediaPlaceholder" class="bg-black/40 rounded-lg border border-gray-700/50 shadow-lg overflow-hidden">
-                        {% if is_stream %}
-                            <div class="flex flex-col items-center justify-center p-6 min-h-[200px]">
-                                <div class="w-16 h-16 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center mb-3">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9A2.25 2.25 0 0015.75 16.5v-9A2.25 2.25 0 0013.5 4.5h-9A2.25 2.25 0 002.25 6.75v9A2.25 2.25 0 004.5 18.75z" />
-                                    </svg>
+                <div class="w-full lg:col-span-2 space-y-4">
+
+                    <!-- Crime verdict badge — always shown at top -->
+                    <div class="p-4 rounded-xl border
+                        {% if 'Normal' in overall_crime %}bg-green-900/30 border-green-700/50
+                        {% elif 'Mixed' in overall_crime %}bg-yellow-900/30 border-yellow-700/50
+                        {% else %}bg-red-900/30 border-red-700/50{% endif %}">
+                        <p class="text-xs font-bold uppercase tracking-widest mb-1
+                            {% if 'Normal' in overall_crime %}text-green-400
+                            {% elif 'Mixed' in overall_crime %}text-yellow-400
+                            {% else %}text-red-400{% endif %}">
+                            {% if 'Normal' in overall_crime %}✅ No Crime Detected
+                            {% elif 'Mixed' in overall_crime %}⚠️ Mixed Activity
+                            {% else %}🚨 Crime Detected{% endif %}
+                        </p>
+                        <p class="text-white font-bold">{{ overall_crime }}</p>
+                        <p class="text-gray-400 text-xs mt-1">Confidence: {{ "%.1f"|format(confidence_score * 100) }}% &nbsp;·&nbsp; ⏱ {{ analysis_duration }}s</p>
+                    </div>
+
+                    {% if is_stream %}
+                        <!-- STREAM: show extracted clips if any, otherwise show no-recording notice -->
+                        {% if crime_clips %}
+                            <div>
+                                <h3 class="text-sm font-bold uppercase tracking-widest text-red-400 mb-3">
+                                    🎬 Extracted Crime Clips ({{ crime_clips|length }})
+                                </h3>
+                                <div class="space-y-3">
+                                    {% for clip in crime_clips %}
+                                    <div class="bg-red-950/30 border border-red-800/40 rounded-xl overflow-hidden">
+                                        <video src="{{ url_for('serve_clip', filename=clip.filename) }}" controls
+                                            class="w-full max-h-48 object-contain bg-black">
+                                        </video>
+                                        <div class="px-3 py-2 flex justify-between items-center">
+                                            <div>
+                                                <span class="text-red-400 text-xs font-bold">{{ clip.crime_label }}</span>
+                                                <span class="text-gray-500 text-xs ml-2">Frame {{ clip.trigger_frame }}</span>
+                                            </div>
+                                            <a href="{{ url_for('serve_clip', filename=clip.filename) }}" download
+                                                class="text-blue-400 hover:text-white text-xs underline">Download</a>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
                                 </div>
-                                <p class="text-blue-400 font-semibold text-sm">Live Stream Analyzed</p>
-                                <p class="text-gray-500 text-xs mt-1">No recording saved</p>
                             </div>
                         {% else %}
-                            <video src="{{ video_url }}" controls
-                                class="w-full rounded-t-lg max-h-56 object-contain bg-black">
-                            </video>
-                            <div class="px-3 py-2 flex justify-between items-center border-t border-gray-700/50">
-                                <span class="text-gray-400 text-xs truncate">{{ video_file_name }}</span>
-                                <a href="{{ video_url }}" download class="text-blue-400 hover:text-white text-xs underline ml-2 shrink-0">Download</a>
+                            <div class="bg-black/30 border border-gray-700/50 rounded-xl p-6 flex flex-col items-center justify-center min-h-[150px]">
+                                <p class="text-blue-400 font-semibold text-sm">📡 Live Stream Analyzed</p>
+                                <p class="text-gray-500 text-xs mt-2 text-center">No high-confidence crime detected — no clip was saved.</p>
                             </div>
                         {% endif %}
 
-                        <!-- Crime verdict badge -->
-                        <div class="mx-3 mb-3 mt-2 p-3 rounded-lg
-                            {% if 'Normal' in overall_crime %}bg-green-900/40 border border-green-700/50
-                            {% elif 'Mixed' in overall_crime %}bg-yellow-900/40 border border-yellow-700/50
-                            {% else %}bg-red-900/40 border border-red-700/50{% endif %}">
-                            <p class="text-xs font-bold uppercase tracking-widest mb-1
-                                {% if 'Normal' in overall_crime %}text-green-400
-                                {% elif 'Mixed' in overall_crime %}text-yellow-400
-                                {% else %}text-red-400{% endif %}">
-                                {% if 'Normal' in overall_crime %}✅ No Crime Detected
-                                {% elif 'Mixed' in overall_crime %}⚠️ Mixed Activity
-                                {% else %}🚨 Crime Detected{% endif %}
-                            </p>
-                            <p class="text-white font-bold text-sm">{{ overall_crime }}</p>
-                            <p class="text-gray-400 text-xs mt-1">Confidence: {{ "%.1f"|format(confidence_score * 100) }}%</p>
+                    {% else %}
+                        <!-- VIDEO UPLOAD: show the original video -->
+                        <div>
+                            <h2 class="text-lg font-semibold text-white mb-2">Analyzed Video</h2>
+                            <div class="bg-black/40 rounded-xl border border-gray-700/50 overflow-hidden">
+                                <video src="{{ video_url }}" controls
+                                    class="w-full max-h-56 object-contain bg-black">
+                                </video>
+                                <div class="px-3 py-2 flex justify-between items-center">
+                                    <span class="text-gray-400 text-xs truncate">{{ video_file_name }}</span>
+                                    <a href="{{ video_url }}" download class="text-blue-400 hover:text-white text-xs underline ml-2 shrink-0">Download</a>
+                                </div>
+                            </div>
                         </div>
-                        <p class="text-gray-500 text-xs px-3 pb-3">⏱ Analysis time: {{ analysis_duration }}s</p>
-                    </div>
+
+                        <!-- Show extracted clips for video upload too if any -->
+                        {% if crime_clips %}
+                        <div>
+                            <h3 class="text-sm font-bold uppercase tracking-widest text-red-400 mb-3">
+                                🎬 Crime Clips ({{ crime_clips|length }})
+                            </h3>
+                            <div class="space-y-3">
+                                {% for clip in crime_clips %}
+                                <div class="bg-red-950/30 border border-red-800/40 rounded-xl overflow-hidden">
+                                    <video src="{{ url_for('serve_clip', filename=clip.filename) }}" controls
+                                        class="w-full max-h-40 object-contain bg-black">
+                                    </video>
+                                    <div class="px-3 py-2 flex justify-between items-center">
+                                        <div>
+                                            <span class="text-red-400 text-xs font-bold">{{ clip.crime_label }}</span>
+                                            <span class="text-gray-500 text-xs ml-2">Frame {{ clip.trigger_frame }}</span>
+                                        </div>
+                                        <a href="{{ url_for('serve_clip', filename=clip.filename) }}" download
+                                            class="text-blue-400 hover:text-white text-xs underline">Download</a>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endif %}
+
                 </div>
                 <div class="w-full lg:col-span-3">
                     <h2 class="text-2xl font-semibold text-white mb-4">Forensic Breakdown</h2>
