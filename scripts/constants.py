@@ -1,5 +1,5 @@
 # --- Configuration Constants ---
-FRAME_INTERVAL = 150
+FRAME_INTERVAL = 900
 CAPTION_MAX_LENGTH = 30 # As per your previous request
 CAPTION_NUM_BEAMS = 5
 CLIP_IMAGE_SIZE = 224

@@ -189,7 +189,7 @@ def process_video(
         raise RuntimeError(f"Error opening video source: {video_path}")
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
-    FRAME_INTERVAL = 30 # Adjust based on your original file
+    FRAME_INTERVAL = 1800 # Adjust based on your original file
     
     results = {"frame_labels": [], "frame_confs": [], "detected_objects": [], "captions": [], "video_fps": fps}
     frame_idx, BATCH_SIZE = 0, 8

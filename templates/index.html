@@ -210,43 +210,97 @@
                 {% endif %}
             {% endwith %}
 
-            <form action="/index" method="POST" enctype="multipart/form-data" class="mb-8">
-                
-                <!-- 1. Video Upload Section (Removed 'required' attribute) -->
-                <div class="mb-6">
-                    <label for="video_file" class="block text-left text-lg font-semibold mb-3 text-white">
-                        1. Select Evidence Video (File):
-                    </label>
-                    <input type="file" id="video_file" name="video_file" accept="video/*"
-                            class="block w-full text-sm text-gray-300
-                                 bg-gray-700/50 rounded-lg cursor-pointer focus:outline-none
-                                 file:mr-4 file:py-2 file:px-4
-                                 file:rounded-full file:border-0
-                                 file:text-sm file:font-semibold
-                                 file:bg-[var(--color-primary-blue)] file:text-white
-                                 hover:file:bg-secondary-blue-light hover:file:cursor-pointer" />
-                </div>
-                
-                <!-- Video Preview Container -->
-                <div id="videoPreviewContainer" class="mt-2 mb-6 p-2 rounded-lg hidden">
-                    <video id="videoPreview" src="#" controls class="w-full h-auto rounded-md"></video>
-                    <p id="videoPreviewText" class="text-gray-500 italic text-sm mt-2 hidden">No video selected</p>
-                </div>
-
-                <!-- 2. NEW Live Stream Section -->
-                <div class="mt-6 p-4 border border-gray-700 rounded-xl bg-gray-800/40 text-left">
-                    <label for="stream_url" class="block text-lg font-semibold mb-2 text-white">
-                        2. Or Analyze a Live Stream:
-                    </label>
-                    <p class="text-xs text-gray-400 mb-3">Leave file upload blank and type '0' to test with your webcam.</p>
-                    <input type="text" id="stream_url" name="stream_url" placeholder="Enter RTSP URL or type 0" 
-                           class="w-full rounded-md bg-gray-900 border border-gray-600 text-white shadow-sm p-3 focus:outline-none focus:border-blue-500">
-                </div>
-
-                <button type="submit" class="mt-8 w-full btn-primary-glow font-bold py-3 px-8 rounded-xl transition-all duration-300 ease-in-out transform flex items-center justify-center space-x-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    <span>Analyze Evidence</span>
+            <!-- Tab Switcher -->
+            <div class="flex rounded-xl overflow-hidden border border-gray-700 mb-6">
+                <button id="tabFile" onclick="switchTab('file')"
+                    class="flex-1 py-3 text-sm font-semibold transition-all duration-200 bg-[var(--color-primary-blue)] text-white">
+                    📁 Upload Video
                 </button>
+                <button id="tabStream" onclick="switchTab('stream')"
+                    class="flex-1 py-3 text-sm font-semibold transition-all duration-200 bg-gray-800 text-gray-400 hover:text-white">
+                    📡 Live Stream
+                </button>
+            </div>
+
+            <form action="/index" method="POST" enctype="multipart/form-data" class="mb-8">
+
+                <!-- FILE UPLOAD TAB -->
+                <div id="panelFile">
+                    <div class="mb-4">
+                        <label for="video_file" class="block text-left text-sm font-semibold mb-2 text-gray-300">
+                            Select a video file for analysis:
+                        </label>
+                        <input type="file" id="video_file" name="video_file" accept="video/*"
+                                class="block w-full text-sm text-gray-300
+                                     bg-gray-700/50 rounded-lg cursor-pointer focus:outline-none
+                                     file:mr-4 file:py-2 file:px-4
+                                     file:rounded-full file:border-0
+                                     file:text-sm file:font-semibold
+                                     file:bg-[var(--color-primary-blue)] file:text-white
+                                     hover:file:cursor-pointer" />
+                    </div>
+                    <!-- Video Preview -->
+                    <div id="videoPreviewContainer" class="mt-2 mb-4 p-2 rounded-lg hidden border border-gray-700">
+                        <video id="videoPreview" src="#" controls class="w-full h-auto rounded-md max-h-48"></video>
+                    </div>
+                    <!-- stream_url intentionally empty for file upload -->
+                    <button type="submit"
+                        class="mt-4 w-full btn-primary-glow font-bold py-3 px-8 rounded-xl flex items-center justify-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>Analyze Video</span>
+                    </button>
+                </div>
+
+                <!-- LIVE STREAM TAB -->
+                <div id="panelStream" class="hidden">
+                    <p class="text-left text-sm text-gray-400 mb-4">
+                        Connect a webcam or IP camera. Type <span class="text-blue-400 font-mono font-bold">0</span> for your laptop's webcam, or paste an RTSP URL for an IP camera.
+                    </p>
+
+                    <!-- Live Webcam Preview -->
+                    <div class="relative mb-4 rounded-xl overflow-hidden border border-gray-700 bg-black" style="min-height:180px;">
+                        <video id="webcamPreview" autoplay muted playsinline
+                            class="w-full rounded-xl max-h-48 object-cover"></video>
+                        <div id="webcamPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9A2.25 2.25 0 0015.75 16.5v-9A2.25 2.25 0 0013.5 4.5h-9A2.25 2.25 0 002.25 6.75v9A2.25 2.25 0 004.5 18.75z" />
+                            </svg>
+                            <p class="text-xs">Camera preview will appear here</p>
+                        </div>
+                        <div id="webcamLiveBadge" class="hidden absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">● LIVE</div>
+                    </div>
+
+                    <div class="flex gap-2 mb-4">
+                        <button type="button" id="btnStartCam"
+                            onclick="startWebcam()"
+                            class="flex-1 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm font-semibold text-white transition-all">
+                            📷 Preview Webcam
+                        </button>
+                        <button type="button" id="btnStopCam"
+                            onclick="stopWebcam()"
+                            class="flex-1 py-2 rounded-lg bg-gray-800 text-sm font-semibold text-gray-500 transition-all hidden">
+                            ⏹ Stop Preview
+                        </button>
+                    </div>
+
+                    <input type="text" id="stream_url" name="stream_url"
+                        placeholder="0  (webcam)  or  rtsp://192.168.1.x/stream"
+                        class="w-full rounded-md bg-gray-900 border border-gray-600 text-white shadow-sm p-3 focus:outline-none focus:border-blue-500 font-mono text-sm mb-4">
+
+                    <!-- no file for stream tab -->
+
+                    <button type="submit"
+                        class="w-full btn-primary-glow font-bold py-3 px-8 rounded-xl flex items-center justify-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                        </svg>
+                        <span>Start Live Analysis</span>
+                    </button>
+                    <p class="text-xs text-gray-500 mt-2">Analysis runs for ~30 seconds then generates a report.</p>
+                </div>
+
             </form>
 
             <div id="messageBox" class="mt-4 p-3 bg-red-600/30 text-red-200 rounded-lg hidden" role="alert">
@@ -379,17 +433,90 @@
             animate();
 
             const videoInput = document.getElementById('video_file');
-            const messageBox = document.getElementById('messageBox');
-            const messageText = document.getElementById('messageText');
             const videoPreviewContainer = document.getElementById('videoPreviewContainer');
             const videoPreview = document.getElementById('videoPreview');
-            const videoPreviewText = document.getElementById('videoPreviewText');
+            const messageBox = document.getElementById('messageBox');
+            const messageText = document.getElementById('messageText');
+
+            // --- Tab Switching ---
+            let webcamStream = null;
+
+            window.switchTab = function(tab) {
+                const panelFile = document.getElementById('panelFile');
+                const panelStream = document.getElementById('panelStream');
+                const tabFile = document.getElementById('tabFile');
+                const tabStream = document.getElementById('tabStream');
+
+                if (tab === 'file') {
+                    panelFile.classList.remove('hidden');
+                    panelStream.classList.add('hidden');
+                    tabFile.classList.add('bg-[var(--color-primary-blue)]', 'text-white');
+                    tabFile.classList.remove('bg-gray-800', 'text-gray-400');
+                    tabStream.classList.add('bg-gray-800', 'text-gray-400');
+                    tabStream.classList.remove('bg-[var(--color-primary-blue)]', 'text-white');
+                    stopWebcam();
+                } else {
+                    panelStream.classList.remove('hidden');
+                    panelFile.classList.add('hidden');
+                    tabStream.classList.add('bg-[var(--color-primary-blue)]', 'text-white');
+                    tabStream.classList.remove('bg-gray-800', 'text-gray-400');
+                    tabFile.classList.add('bg-gray-800', 'text-gray-400');
+                    tabFile.classList.remove('bg-[var(--color-primary-blue)]', 'text-white');
+                }
+            };
+
+            // --- Webcam Preview ---
+            window.startWebcam = async function() {
+                try {
+                    webcamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    const webcamPreview = document.getElementById('webcamPreview');
+                    webcamPreview.srcObject = webcamStream;
+                    document.getElementById('webcamPlaceholder').classList.add('hidden');
+                    document.getElementById('webcamLiveBadge').classList.remove('hidden');
+                    document.getElementById('btnStartCam').classList.add('hidden');
+                    document.getElementById('btnStopCam').classList.remove('hidden');
+                    // Auto-fill stream_url with 0 for webcam
+                    document.getElementById('stream_url').value = '0';
+                } catch (err) {
+                    showClientMessage('Camera access denied. Please allow camera permissions.', true);
+                }
+            };
+
+            window.stopWebcam = function() {
+                if (webcamStream) {
+                    webcamStream.getTracks().forEach(t => t.stop());
+                    webcamStream = null;
+                }
+                const webcamPreview = document.getElementById('webcamPreview');
+                if (webcamPreview) webcamPreview.srcObject = null;
+                const badge = document.getElementById('webcamLiveBadge');
+                if (badge) badge.classList.add('hidden');
+                const placeholder = document.getElementById('webcamPlaceholder');
+                if (placeholder) placeholder.classList.remove('hidden');
+                const btnStart = document.getElementById('btnStartCam');
+                if (btnStart) btnStart.classList.remove('hidden');
+                const btnStop = document.getElementById('btnStopCam');
+                if (btnStop) btnStop.classList.add('hidden');
+            };
+
+            // --- File Video Preview ---
+            if (videoInput) {
+                videoInput.addEventListener('change', (event) => {
+                    if (event.target.files.length > 0) {
+                        const file = event.target.files[0];
+                        videoPreview.src = URL.createObjectURL(file);
+                        videoPreviewContainer.classList.remove('hidden');
+                    } else {
+                        videoPreviewContainer.classList.add('hidden');
+                        videoPreview.src = '#';
+                    }
+                });
+            }
 
             function showClientMessage(message, isError = false) {
                 messageText.textContent = message;
                 messageBox.classList.remove('hidden', 'animate__fadeOut');
                 messageBox.classList.add('animate__animated', 'animate__fadeInUp');
-
                 if (isError) {
                     messageBox.classList.add('bg-red-600/30', 'text-red-200');
                     messageBox.classList.remove('bg-green-600/30', 'text-green-200');
@@ -403,30 +530,6 @@
                 }, 5000);
             }
 
-            videoInput.addEventListener('change', (event) => {
-                if (event.target.files.length > 0) {
-                    const file = event.target.files[0];
-                    const fileURL = URL.createObjectURL(file); 
-
-                    videoPreview.src = fileURL;
-                    videoPreviewContainer.classList.remove('hidden');
-                    videoPreview.classList.remove('hidden'); 
-                    videoPreviewText.classList.add('hidden');
-                    videoPreviewContainer.style.animation = 'none'; 
-                    void videoPreviewContainer.offsetWidth; 
-                    videoPreviewContainer.style.animation = 'previewFadeIn 0.5s ease-out forwards'; 
-                    showClientMessage('Video selected for preview.', false);
-                } else {
-                    videoPreviewContainer.classList.add('hidden');
-                    videoPreview.src = '#'; 
-                    videoPreviewText.classList.remove('hidden');
-                    showClientMessage('No video selected.', true);
-                }
-            });
-
-            videoPreviewContainer.classList.add('hidden');
-            videoPreviewText.classList.remove('hidden');
-
             const flashMessageBox = document.getElementById('flashMessageBox');
             if (flashMessageBox) {
                 flashMessageBox.classList.add('animate__animated', 'animate__fadeInDown');
@@ -434,7 +537,7 @@
                     flashMessageBox.classList.remove('animate__fadeInDown');
                     flashMessageBox.classList.add('animate__fadeOut');
                     setTimeout(() => flashMessageBox.remove(), 1000);
-                }, 7000); 
+                }, 7000);
             }
         });
     </script>

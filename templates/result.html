@@ -239,13 +239,44 @@
             <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12 items-start">
                 <div class="w-full lg:col-span-2">
                     <h2 class="text-2xl font-semibold text-white mb-4">Analyzed Media</h2>
-                    <div id="analyzedMediaPlaceholder" class="bg-black/40 rounded-lg p-4 border border-gray-700/50 shadow-lg text-center flex flex-col items-center justify-center min-h-[200px]">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-20 h-20 text-primary-blue mb-2">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9A2.25 2.25 0 0015.75 16.5v-9A2.25 2.25 0 0013.5 4.5h-9A2.25 2.25 0 002.25 6.75v9A2.25 2.25 0 004.5 18.75z" />
-                        </svg>
-                        <p class="text-gray-400 text-sm">Video file processed.</p>
-                        <p class="text-gray-400 text-xs mt-1">Analysis time: {{ analysis_duration }} seconds</p>
-                        <a href="{{ video_path }}" download class="text-gray-400 hover:text-white text-xs mt-2 underline">Download Uploaded Video</a>
+                    <div id="analyzedMediaPlaceholder" class="bg-black/40 rounded-lg border border-gray-700/50 shadow-lg overflow-hidden">
+                        {% if is_stream %}
+                            <div class="flex flex-col items-center justify-center p-6 min-h-[200px]">
+                                <div class="w-16 h-16 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center mb-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9A2.25 2.25 0 0015.75 16.5v-9A2.25 2.25 0 0013.5 4.5h-9A2.25 2.25 0 002.25 6.75v9A2.25 2.25 0 004.5 18.75z" />
+                                    </svg>
+                                </div>
+                                <p class="text-blue-400 font-semibold text-sm">Live Stream Analyzed</p>
+                                <p class="text-gray-500 text-xs mt-1">No recording saved</p>
+                            </div>
+                        {% else %}
+                            <video src="{{ video_url }}" controls
+                                class="w-full rounded-t-lg max-h-56 object-contain bg-black">
+                            </video>
+                            <div class="px-3 py-2 flex justify-between items-center border-t border-gray-700/50">
+                                <span class="text-gray-400 text-xs truncate">{{ video_file_name }}</span>
+                                <a href="{{ video_url }}" download class="text-blue-400 hover:text-white text-xs underline ml-2 shrink-0">Download</a>
+                            </div>
+                        {% endif %}
+
+                        <!-- Crime verdict badge -->
+                        <div class="mx-3 mb-3 mt-2 p-3 rounded-lg
+                            {% if 'Normal' in overall_crime %}bg-green-900/40 border border-green-700/50
+                            {% elif 'Mixed' in overall_crime %}bg-yellow-900/40 border border-yellow-700/50
+                            {% else %}bg-red-900/40 border border-red-700/50{% endif %}">
+                            <p class="text-xs font-bold uppercase tracking-widest mb-1
+                                {% if 'Normal' in overall_crime %}text-green-400
+                                {% elif 'Mixed' in overall_crime %}text-yellow-400
+                                {% else %}text-red-400{% endif %}">
+                                {% if 'Normal' in overall_crime %}✅ No Crime Detected
+                                {% elif 'Mixed' in overall_crime %}⚠️ Mixed Activity
+                                {% else %}🚨 Crime Detected{% endif %}
+                            </p>
+                            <p class="text-white font-bold text-sm">{{ overall_crime }}</p>
+                            <p class="text-gray-400 text-xs mt-1">Confidence: {{ "%.1f"|format(confidence_score * 100) }}%</p>
+                        </div>
+                        <p class="text-gray-500 text-xs px-3 pb-3">⏱ Analysis time: {{ analysis_duration }}s</p>
                     </div>
                 </div>
                 <div class="w-full lg:col-span-3">
