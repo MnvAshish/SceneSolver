@@ -7,7 +7,7 @@ import torchvision.transforms as T
 from transformers import BlipProcessor, BlipForConditionalGeneration, pipeline
 from collections import Counter
 from ultralytics import YOLO
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Union
 
 
 # --- Project Setup ---
@@ -93,16 +93,26 @@ def detect_objects_batch(frames_batch: List[Any], yolo_model: YOLO) -> List[List
     if not frames_batch:
         return []
         
-    results_batch = yolo_model(frames_batch, verbose=False, conf=OBJ_CONF_THRESHOLD)
+    results_batch = yolo_model.track(frames_batch, persist=True, tracker="bytetrack.yaml", verbose=False, conf=OBJ_CONF_THRESHOLD)
     
     all_detected_objs = []
     for results in results_batch:
         detected_objs_for_frame = []
         if results.boxes:
-            for box in results.boxes:
-                label = yolo_model.model.names[int(box.cls)]
-                if label in CRIME_OBJECTS:
-                    detected_objs_for_frame.append(label)
+            if results.boxes.id is not None:
+                track_ids = results.boxes.id.int().cpu().tolist()
+                class_ids = results.boxes.cls.int().cpu().tolist()
+                names = results.names
+                
+                for track_id, cls_id in zip(track_ids, class_ids):
+                    label = names[cls_id]
+                    if label in CRIME_OBJECTS:
+                        detected_objs_for_frame.append(f"{label} ID: {track_id}")
+            else:
+                for box in results.boxes:
+                    label = results.names[int(box.cls)]
+                    if label in CRIME_OBJECTS:
+                        detected_objs_for_frame.append(label)
         all_detected_objs.append(detected_objs_for_frame)
     return all_detected_objs
 
@@ -166,19 +176,20 @@ def _process_frame_batch(
 # --- THIS IS THE OTHER CHANGED LINE ---
 # Updated the type hint for binary_classifier_model
 def process_video(
-    video_path: str, classifier_model: Any, binary_classifier_model: Any,
+    video_path: Union[str, int], classifier_model: Any, binary_classifier_model: Any,
     blip_processor: Any, blip_model: Any, yolo_model: Any,
-    clip_transform: Any, device: Any
+    clip_transform: Any, device: Any, max_frames: int = None
 ) -> Dict[str, Any]:
     """
-    Processes a video by analyzing frames at a set interval using batch processing
+    Processes a video or LIVE STREAM by analyzing frames at a set interval using batch processing
     and an OpenCV Zero-Compute Motion Pre-Filter.
     """
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        raise RuntimeError(f"Error opening video file: {video_path}")
+        raise RuntimeError(f"Error opening video source: {video_path}")
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
+    FRAME_INTERVAL = 30 # Adjust based on your original file
     
     results = {"frame_labels": [], "frame_confs": [], "detected_objects": [], "captions": [], "video_fps": fps}
     frame_idx, BATCH_SIZE = 0, 8
@@ -186,9 +197,14 @@ def process_video(
     
     # --- Motion Detection Initialization ---
     prev_gray_frame = None
-    MOTION_THRESHOLD = 500  # Adjust this: higher means it ignores small movements
+    MOTION_THRESHOLD = 500  
 
     while True:
+        # --- NEW: Stop if it's a live stream and we hit the limit ---
+        if max_frames is not None and frame_idx >= max_frames:
+            print(f"DEBUG: Reached max frames ({max_frames}) for live stream. Generating report...")
+            break
+
         ret, frame = cap.read()
         if not ret: break
 
@@ -212,19 +228,16 @@ def process_video(
             
             # --- 2. Conditional Routing ---
             if not motion_detected:
-                # Bypass the AI models entirely for this frame
                 results["frame_labels"].append("Normal Activity")
                 results["frame_confs"].append(1.0)
                 results["captions"].append("No significant movement detected in the scene.")
-                results["detected_objects"].append([]) # Keep array lengths aligned!
+                results["detected_objects"].append([]) 
             else:
-                # Motion detected! Add to batch for Heavy AI processing
                 pil_img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 pil_images_batch.append(pil_img)
                 cv_frames_batch.append(frame)
                 frame_indices_batch.append(frame_idx)
 
-                # Process batch if full
                 if len(pil_images_batch) >= BATCH_SIZE:
                     batch_output = _process_frame_batch(
                         pil_images_batch, cv_frames_batch, frame_indices_batch,
@@ -279,30 +292,32 @@ def aggregate_labels(labels: list, confs: list) -> Tuple[str, float]:
         else:
             return f"Mixed Incident (featuring {most_common_label})", dominance
 
-def summarize_captions(caps: list, summarizer: pipeline, overall_crime_class: str) -> str:
-    """Summarizes a list of captions, dynamically adjusting to input length."""
+def summarize_captions(caps: list, detected_objects: list, summarizer: Any, overall_crime_class: str) -> str:
+    """Summarizes a list of captions and tracked objects, dynamically adjusting to input length."""
     if "Normal Activity" in overall_crime_class or "Normal" in overall_crime_class:
         return "The video footage was analyzed and determined to show routine activities with no significant crime-related events detected."
 
-    # 1. Remove duplicate sentences! (This stops the weird repetitive looping)
     unique_caps = list(set(caps))
-    text = " ".join(unique_caps)
+    base_text = " ".join(unique_caps)
     
+    unique_tracked_objects = list(set([obj for obj in detected_objects if "ID:" in obj]))
+    
+    if unique_tracked_objects:
+        object_context = f" Tracked entities involved in the scene include: {', '.join(unique_tracked_objects)}."
+        text = base_text + object_context
+    else:
+        text = base_text
+
     if not text or text == "Normal activity observed.":
         return "No specific details could be extracted from the scene."
 
-    # 2. Count the words to fix the terminal warning
     word_count = len(text.split())
-
-    # 3. If the input is too short, BART will hallucinate. Just return the unique text!
     if word_count < 25:
         return text 
 
     try:
-        # 4. Dynamically adjust max_length so it doesn't force a long output
         dynamic_max = min(120, int(word_count * 1.5))
         dynamic_min = min(30, int(word_count * 0.5))
-        
         summary = summarizer(text, max_length=dynamic_max, min_length=dynamic_min, do_sample=False)[0]["summary_text"]
         return summary
     except Exception as e:

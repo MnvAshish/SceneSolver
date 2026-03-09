@@ -36,7 +36,14 @@ try:
     if not MONGO_URI:
         print("CRITICAL ERROR: MONGO_URI environment variable not set.", file=sys.stderr)
         sys.exit(1)
-    client = MongoClient(MONGO_URI)
+    client = MongoClient(
+    MONGO_URI,
+    tls=True,
+    tlsAllowInvalidCertificates=True,
+    serverSelectionTimeoutMS=30000,
+    connectTimeoutMS=20000,
+    socketTimeoutMS=20000
+)
     db = client['scene_solver_db']
     users = db['users']
     analysis_history = db['analysis_history']

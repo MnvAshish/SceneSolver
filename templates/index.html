@@ -49,7 +49,7 @@
             height: 100%;
             z-index: -1;
             background-color: var(--color-deep-blue-bg);
-            filter: brightness(1.2) contrast(1.4); /* Made it pop out a little more */
+            filter: brightness(1.2) contrast(1.4); 
         }
 
         /* Glassmorphism effect for the main card */
@@ -106,11 +106,10 @@
         }
         .logo-text {
             color: #ffffff;
-            /* Removed text-shadow for cleaner look */
         }
         .logo-icon {
-            color: var(--color-primary-blue); /* Ensure blue color */
-            filter: drop-shadow(0 0 5px var(--color-primary-blue)); /* Drop shadow using new blue */
+            color: var(--color-primary-blue); 
+            filter: drop-shadow(0 0 5px var(--color-primary-blue)); 
         }
 
         /* Video preview container styling */
@@ -148,7 +147,6 @@
             opacity: 0;
             transform: translateY(10px);
         }
-        /* Flash message box styling */
         .flash-message-success {
             background-color: rgba(0, 128, 0, 0.3);
             color: #90ee90;
@@ -157,7 +155,6 @@
             background-color: rgba(128, 0, 0, 0.3);
             color: #ff6347;
         }
-        /* Custom scrollbar styling */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--color-deep-blue-bg); }
         ::-webkit-scrollbar-thumb { background: var(--color-primary-blue); border-radius: 10px; }
@@ -166,7 +163,7 @@
 </head>
 <body class="antialiased">
     <canvas id="background-animation"></canvas>
-    <!-- Navigation Header -->
+    
     <nav class="navbar fixed top-0 w-full z-50 shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-20 items-center">
@@ -188,11 +185,6 @@
                             </svg>
                             <span id="profileUsername">{{ username }}</span>
                         </button>
-                        <div id="profileDropdown" class="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 z-20 hidden glass-effect">
-                            <span id="dropdownUsername" class="block px-4 py-2 text-sm text-gray-300 border-b border-gray-700">{{ username }}</span>
-                            <a href="{{ url_for('history') }}" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">History</a>
-                            <a href="{{ url_for('logout') }}" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">Log out</a>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -208,7 +200,6 @@
                 <p class="text-gray-400 mt-2 text-sm md:text-base">Upload forensic evidence for AI analysis.</p>
             </header>
 
-            <!-- Display Flask messages -->
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <div id="flashMessageBox" class="mt-4 p-3 rounded-lg animate__animated animate__fadeInUp {% if category == 'error' %}flash-message-error{% else %}flash-message-success{% endif %}" role="alert">
@@ -220,22 +211,36 @@
             {% endwith %}
 
             <form action="/index" method="POST" enctype="multipart/form-data" class="mb-8">
-                <label for="video_file" class="block text-left text-lg font-semibold mb-3 text-white">
-                    Select Evidence Video:
-                </label>
-                <input type="file" id="video_file" name="video_file" accept="video/*" required
-                        class="block w-full text-sm text-gray-300
-                             bg-gray-700/50 rounded-lg cursor-pointer focus:outline-none
-                             file:mr-4 file:py-2 file:px-4
-                             file:rounded-full file:border-0
-                             file:text-sm file:font-semibold
-                             file:bg-[var(--color-primary-blue)] file:text-white /* Primary blue button with white text */
-                             hover:file:bg-secondary-blue-light hover:file:cursor-pointer" />
+                
+                <!-- 1. Video Upload Section (Removed 'required' attribute) -->
+                <div class="mb-6">
+                    <label for="video_file" class="block text-left text-lg font-semibold mb-3 text-white">
+                        1. Select Evidence Video (File):
+                    </label>
+                    <input type="file" id="video_file" name="video_file" accept="video/*"
+                            class="block w-full text-sm text-gray-300
+                                 bg-gray-700/50 rounded-lg cursor-pointer focus:outline-none
+                                 file:mr-4 file:py-2 file:px-4
+                                 file:rounded-full file:border-0
+                                 file:text-sm file:font-semibold
+                                 file:bg-[var(--color-primary-blue)] file:text-white
+                                 hover:file:bg-secondary-blue-light hover:file:cursor-pointer" />
+                </div>
                 
                 <!-- Video Preview Container -->
-                <div id="videoPreviewContainer" class="mt-6 p-2 rounded-lg hidden">
+                <div id="videoPreviewContainer" class="mt-2 mb-6 p-2 rounded-lg hidden">
                     <video id="videoPreview" src="#" controls class="w-full h-auto rounded-md"></video>
                     <p id="videoPreviewText" class="text-gray-500 italic text-sm mt-2 hidden">No video selected</p>
+                </div>
+
+                <!-- 2. NEW Live Stream Section -->
+                <div class="mt-6 p-4 border border-gray-700 rounded-xl bg-gray-800/40 text-left">
+                    <label for="stream_url" class="block text-lg font-semibold mb-2 text-white">
+                        2. Or Analyze a Live Stream:
+                    </label>
+                    <p class="text-xs text-gray-400 mb-3">Leave file upload blank and type '0' to test with your webcam.</p>
+                    <input type="text" id="stream_url" name="stream_url" placeholder="Enter RTSP URL or type 0" 
+                           class="w-full rounded-md bg-gray-900 border border-gray-600 text-white shadow-sm p-3 focus:outline-none focus:border-blue-500">
                 </div>
 
                 <button type="submit" class="mt-8 w-full btn-primary-glow font-bold py-3 px-8 rounded-xl transition-all duration-300 ease-in-out transform flex items-center justify-center space-x-2">
@@ -244,7 +249,6 @@
                 </button>
             </form>
 
-            <!-- Message box for client-side feedback (now separate from Flask flash messages) -->
             <div id="messageBox" class="mt-4 p-3 bg-red-600/30 text-red-200 rounded-lg hidden" role="alert">
                 <p id="messageText"></p>
             </div>
@@ -253,17 +257,17 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- Plexus (Connecting Dots) Background Animation ---
+            // (Your existing background animation JavaScript stays exactly the same)
             const canvas = document.getElementById('background-animation');
             const ctx = canvas.getContext('2d');
             let particles = [];
             let numParticles;
-            let mouse = { x: null, y: null, radius: 150 }; // Mouse interaction radius
+            let mouse = { x: null, y: null, radius: 150 }; 
 
             function resizeCanvas() {
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
-                numParticles = Math.floor((canvas.width * canvas.height) / 8000); /* Adjusted particle density for subtlety */
+                numParticles = Math.floor((canvas.width * canvas.height) / 8000); 
                 initParticles();
             }
 
@@ -271,11 +275,11 @@
                 constructor(x, y, vx, vy, radius) {
                     this.x = x || Math.random() * canvas.width;
                     this.y = y || Math.random() * canvas.height;
-                    this.vx = vx || (Math.random() - 0.5) * 0.2; /* Slower movement for subtlety */
+                    this.vx = vx || (Math.random() - 0.5) * 0.2; 
                     this.vy = vy || (Math.random() - 0.5) * 0.2;
-                    this.radius = radius || Math.random() * 1.5 + 0.5; /* Smaller particles for subtlety */
+                    this.radius = radius || Math.random() * 1.5 + 0.5; 
                     this.baseRadius = this.radius;
-                    this.alpha = Math.random() * 0.6 + 0.3; /* Brighter initial opacity for particles */
+                    this.alpha = Math.random() * 0.6 + 0.3; 
                 }
 
                 update() {
@@ -285,7 +289,6 @@
                     this.x += this.vx;
                     this.y += this.vy;
 
-                    // Mouse interaction
                     if (mouse.x && mouse.y) {
                         const dx = this.x - mouse.x;
                         const dy = this.y - mouse.y;
@@ -295,7 +298,7 @@
                             const forceDirectionX = dx / dist;
                             const forceDirectionY = dy / dist;
                             const maxForce = mouse.radius / dist;
-                            const directionX = forceDirectionX * 0.5; /* Softer push */
+                            const directionX = forceDirectionX * 0.5; 
                             const directionY = forceDirectionY * 0.5;
 
                             this.x += directionX;
@@ -303,12 +306,10 @@
                         }
                     }
 
-                    // Twinkling effect (subtle alpha change)
-                    this.alpha += (Math.random() - 0.5) * 0.02; /* Faster twinkling */
+                    this.alpha += (Math.random() - 0.5) * 0.02; 
                     if (this.alpha > 1) this.alpha = 1;
                     if (this.alpha < 0.3) this.alpha = 0.3;
 
-                    // Return to base size if expanded by mouse
                     if (this.radius > this.baseRadius) {
                         this.radius -= 0.05;
                         if (this.radius < this.baseRadius) this.radius = this.baseRadius;
@@ -318,9 +319,9 @@
                 draw() {
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(15, 86, 235, ${this.alpha})`; /* Blue particles */
-                    ctx.shadowColor = `rgba(15, 86, 235, ${this.alpha * 1.0})`; /* Blue shadow, more intense */
-                    ctx.shadowBlur = this.radius * 3; /* More blur for brighter glow */
+                    ctx.fillStyle = `rgba(15, 86, 235, ${this.alpha})`; 
+                    ctx.shadowColor = `rgba(15, 86, 235, ${this.alpha * 1.0})`; 
+                    ctx.shadowBlur = this.radius * 3; 
                     ctx.fill();
                     ctx.shadowBlur = 0;
                 }
@@ -334,7 +335,7 @@
             }
 
             function connectParticles() {
-                const maxConnectDist = 120; /* Reduced connection distance for subtlety */
+                const maxConnectDist = 120; 
                 for (let i = 0; i < particles.length; i++) {
                     for (let j = i + 1; j < particles.length; j++) {
                         const dx = particles[i].x - particles[j].x;
@@ -343,8 +344,8 @@
 
                         if (dist < maxConnectDist) {
                             ctx.beginPath();
-                            ctx.strokeStyle = `rgba(15, 86, 235, ${0.4 - (dist / maxConnectDist) * 0.4})`; /* Blue lines, subtle opacity */
-                            ctx.lineWidth = 0.8; /* Thinner lines for subtlety */
+                            ctx.strokeStyle = `rgba(15, 86, 235, ${0.4 - (dist / maxConnectDist) * 0.4})`; 
+                            ctx.lineWidth = 0.8; 
                             ctx.moveTo(particles[i].x, particles[i].y);
                             ctx.lineTo(particles[j].x, particles[j].y);
                             ctx.stroke();
@@ -384,7 +385,6 @@
             const videoPreview = document.getElementById('videoPreview');
             const videoPreviewText = document.getElementById('videoPreviewText');
 
-            // Function to show client-side messages
             function showClientMessage(message, isError = false) {
                 messageText.textContent = message;
                 messageBox.classList.remove('hidden', 'animate__fadeOut');
@@ -406,38 +406,35 @@
             videoInput.addEventListener('change', (event) => {
                 if (event.target.files.length > 0) {
                     const file = event.target.files[0];
-                    const fileURL = URL.createObjectURL(file); // Create a URL for the selected video file
+                    const fileURL = URL.createObjectURL(file); 
 
                     videoPreview.src = fileURL;
                     videoPreviewContainer.classList.remove('hidden');
-                    videoPreview.classList.remove('hidden'); // Ensure video element is visible
+                    videoPreview.classList.remove('hidden'); 
                     videoPreviewText.classList.add('hidden');
-                    videoPreviewContainer.style.animation = 'none'; // Reset animation
-                    void videoPreviewContainer.offsetWidth; // Trigger reflow
-                    videoPreviewContainer.style.animation = 'previewFadeIn 0.5s ease-out forwards'; // Re-apply
+                    videoPreviewContainer.style.animation = 'none'; 
+                    void videoPreviewContainer.offsetWidth; 
+                    videoPreviewContainer.style.animation = 'previewFadeIn 0.5s ease-out forwards'; 
                     showClientMessage('Video selected for preview.', false);
                 } else {
                     videoPreviewContainer.classList.add('hidden');
-                    videoPreview.src = '#'; // Clear previous video
+                    videoPreview.src = '#'; 
                     videoPreviewText.classList.remove('hidden');
                     showClientMessage('No video selected.', true);
                 }
             });
 
-            // Initial state for video preview
             videoPreviewContainer.classList.add('hidden');
             videoPreviewText.classList.remove('hidden');
 
-            // Handle Flask flashed messages on page load
             const flashMessageBox = document.getElementById('flashMessageBox');
             if (flashMessageBox) {
                 flashMessageBox.classList.add('animate__animated', 'animate__fadeInDown');
                 setTimeout(() => {
                     flashMessageBox.classList.remove('animate__fadeInDown');
                     flashMessageBox.classList.add('animate__fadeOut');
-                    // Remove element after fade out to clean up DOM
                     setTimeout(() => flashMessageBox.remove(), 1000);
-                }, 7000); // Display Flask message longer
+                }, 7000); 
             }
         });
     </script>
