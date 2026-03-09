@@ -299,7 +299,11 @@ def summarize_captions(caps: list, detected_objects: list, summarizer: Any, over
 
     unique_caps = list(set(caps))
     base_text = " ".join(unique_caps)
-    
+
+    # Flatten detected_objects if it's a list of lists
+    if detected_objects and isinstance(detected_objects[0], list):
+        detected_objects = [obj for sublist in detected_objects for obj in sublist]
+
     unique_tracked_objects = list(set([obj for obj in detected_objects if "ID:" in obj]))
     
     if unique_tracked_objects:
