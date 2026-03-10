@@ -162,7 +162,7 @@ def save_crime_clip(frame_buffer: list, future_frames: list, fps: float, crime_l
         return None
 
     h, w = frame_buffer[0].shape[:2]
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*'avc1')
     writer = cv2.VideoWriter(clip_path, fourcc, fps, (w, h))
     for f in list(frame_buffer) + list(future_frames):
         writer.write(f)
@@ -190,7 +190,7 @@ def process_video(
         raise RuntimeError(f"Error opening video source: {video_path}")
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
-    FRAME_INTERVAL = 150   # DEV: 1 frame/min. Set to 30 for production.
+    FRAME_INTERVAL = 30   # DEV: 1 frame/min. Set to 30 for production.
     BUFFER_SECONDS = 5
     POST_EVENT_SECONDS = 5
     BUFFER_SIZE = int(fps * BUFFER_SECONDS)
@@ -200,7 +200,7 @@ def process_video(
         "frame_labels": [], "frame_confs": [], "detected_objects": [],
         "captions": [], "video_fps": fps, "crime_clips": []
     }
-    BATCH_SIZE = 1 if max_frames is not None else 8
+    BATCH_SIZE = 8
     frame_idx = 0
     pil_images_batch, cv_frames_batch, frame_indices_batch = [], [], []
 
@@ -213,7 +213,7 @@ def process_video(
     clipped_frame_indices = set()
 
     prev_gray_frame = None
-    MOTION_THRESHOLD = 50 if max_frames is not None else 500
+    MOTION_THRESHOLD = 10 if max_frames is not None else 500
 
     while True:
         if max_frames is not None and frame_idx >= max_frames:
@@ -243,8 +243,13 @@ def process_video(
                             "crime_label": pending_crime_label,
                             "trigger_frame": frame_idx - POST_EVENT_FRAMES
                         })
+                
                 post_event_buffer = []
                 pending_crime_label = None
+                if max_frames is not None:
+                    print("DEBUG: Crime clip saved — stopping stream early.")
+                    cap.release()
+                    return results
 
         if frame_idx % FRAME_INTERVAL == 0:
             print(f"DEBUG: Sampling frame {frame_idx}")

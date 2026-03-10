@@ -174,7 +174,7 @@ def index():
         if stream_url:
             video_source = 0 if stream_url == '0' else stream_url
             filename = f"stream_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            max_frames_to_process = 300  # ~30 seconds at 30fps
+            max_frames_to_process = 900  # ~30 seconds at 30fps
             is_stream = True
 
         elif video_file and video_file.filename != '':
