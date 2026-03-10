@@ -207,6 +207,7 @@ def index():
                 clips_output_dir=app.config['CLIPS_FOLDER']
             )
 
+            print(f"DEBUG: analysis_result keys={analysis_result.keys()}, captions={analysis_result.get('captions')}, labels={analysis_result.get('frame_labels')}")
             if not analysis_result or not analysis_result.get("captions"):
                 flash("Video analysis failed. The video might be too short or corrupted.", 'error')
                 if not is_stream and isinstance(video_source, str) and os.path.exists(video_source):
