@@ -539,7 +539,30 @@
                     setTimeout(() => flashMessageBox.remove(), 1000);
                 }, 7000);
             }
+
+            // --- Loading overlay on form submit ---
+            document.querySelector('form').addEventListener('submit', () => {
+                const overlay = document.getElementById('loadingOverlay');
+                const title = document.getElementById('loadingTitle');
+                const subtext = document.getElementById('loadingSubtext');
+                const isStream = !document.getElementById('panelStream').classList.contains('hidden');
+                overlay.classList.remove('hidden');
+                if (isStream) {
+                    title.textContent = 'SCANNING LIVE FEED...';
+                    subtext.textContent = 'Monitoring stream for criminal activity';
+                } else {
+                    title.textContent = 'ANALYZING EVIDENCE...';
+                    subtext.textContent = 'Running AI pipeline — this may take a minute';
+                }
+            });
         });
     </script>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
+        <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+        <p class="text-white text-xl font-bold font-poppins tracking-widest" id="loadingTitle">ANALYZING...</p>
+        <p class="text-gray-400 text-sm mt-2" id="loadingSubtext">Running AI pipeline on evidence</p>
+    </div>
 </body>
 </html>
