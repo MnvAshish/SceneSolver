@@ -150,26 +150,42 @@ def _process_frame_batch(
     return batch_results
 
 
-def save_crime_clip(frame_buffer: list, future_frames: list, fps: float, crime_label: str, output_dir: str) -> str:
-    """Saves a crime clip: pre-event buffer + post-event frames."""
+def save_crime_clip(frame_buffer: list, future_frames: list, fps: float, crime_label: str, output_dir: str, yolo_model=None) -> str:
+    """Saves a crime clip with YOLO bounding boxes drawn on each frame."""
     os.makedirs(output_dir, exist_ok=True)
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     safe_label = crime_label.replace(" ", "_")
-    clip_filename = f"clip_{safe_label}_{timestamp}.mp4"
+    clip_filename = f"clip_{safe_label}_{timestamp}.avi"
     clip_path = os.path.join(output_dir, clip_filename)
 
     if not frame_buffer:
         return None
 
     h, w = frame_buffer[0].shape[:2]
-    fourcc = cv2.VideoWriter_fourcc(*'avc1')
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
     writer = cv2.VideoWriter(clip_path, fourcc, fps, (w, h))
+
     for f in list(frame_buffer) + list(future_frames):
-        writer.write(f)
+        annotated = f.copy()
+        if yolo_model is not None:
+            results = yolo_model(f, verbose=False, conf=OBJ_CONF_THRESHOLD)
+            for result in results:
+                if result.boxes:
+                    for box in result.boxes:
+                        x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                        label = result.names[int(box.cls)]
+                        conf = float(box.conf)
+                        cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                        text = f"{label} {conf:.2f}"
+                        (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                        cv2.rectangle(annotated, (x1, y1 - th - 6), (x1 + tw, y1), (0, 0, 255), -1)
+                        cv2.putText(annotated, text, (x1, y1 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        cv2.putText(annotated, f"DETECTED: {crime_label}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+        writer.write(annotated)
+
     writer.release()
     print(f"✅ Crime clip saved: {clip_filename}")
     return clip_filename
-
 
 def process_video(
     video_path: Union[str, int], classifier_model: Any, binary_classifier_model: Any,
@@ -235,7 +251,7 @@ def process_video(
                 if clips_output_dir and pending_crime_label:
                     clip_filename = save_crime_clip(
                         pre_event_snapshot, post_event_buffer,
-                        fps, pending_crime_label, clips_output_dir
+                        fps, pending_crime_label, clips_output_dir,yolo_model=yolo_model
                     )
                     if clip_filename:
                         results["crime_clips"].append({
@@ -303,7 +319,7 @@ def process_video(
                             if max_frames is not None:
                                 # Stream: save immediately with just pre-event buffer, return now
                                 clip_filename = save_crime_clip(
-                                    pre_event_snapshot, [], fps, lbl, clips_output_dir
+                                    pre_event_snapshot, [], fps, lbl, clips_output_dir,yolo_model=yolo_model
                                 )
                                 if clip_filename:
                                     results["crime_clips"].append({
@@ -346,7 +362,7 @@ def process_video(
                 print(f"🎬 Clip triggered (final batch): '{lbl}' at frame {trigger_idx}")
                 pre_event_snapshot = list(rolling_buffer)
                 if clips_output_dir and pending_crime_label is None:
-                    clip_filename = save_crime_clip(pre_event_snapshot, [], fps, lbl, clips_output_dir)
+                    clip_filename = save_crime_clip(pre_event_snapshot, [], fps, lbl, clips_output_dir, yolo_model=yolo_model)
                     if clip_filename:
                         results["crime_clips"].append({
                             "filename": clip_filename,
