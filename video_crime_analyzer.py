@@ -299,10 +299,26 @@ def process_video(
                                 and clips_output_dir):
                             print(f"🎬 Clip triggered: '{lbl}' at frame {trigger_idx}")
                             pre_event_snapshot = list(rolling_buffer)
-                            post_event_capture = True
-                            post_event_frames_remaining = POST_EVENT_FRAMES
-                            pending_crime_label = lbl
                             clipped_frame_indices.add(trigger_idx)
+                            if max_frames is not None:
+                                # Stream: save immediately with just pre-event buffer, return now
+                                clip_filename = save_crime_clip(
+                                    pre_event_snapshot, [], fps, lbl, clips_output_dir
+                                )
+                                if clip_filename:
+                                    results["crime_clips"].append({
+                                        "filename": clip_filename,
+                                        "crime_label": lbl,
+                                        "trigger_frame": trigger_idx
+                                    })
+                                print("DEBUG: Crime clip saved — stopping stream early.")
+                                cap.release()
+                                return results
+                            else:
+                                # Video file: collect post-event frames as normal
+                                post_event_capture = True
+                                post_event_frames_remaining = POST_EVENT_FRAMES
+                                pending_crime_label = lbl
 
                     pil_images_batch, cv_frames_batch, frame_indices_batch = [], [], []
 
