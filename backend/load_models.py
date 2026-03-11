@@ -13,7 +13,7 @@ from scripts.constants import NUM_CLASSES, NUM_BINARY_CLASSES
 # --- DYNAMIC PATH CONFIGURATION ---
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODELS_DIR = PROJECT_ROOT / "models"
-FINETUNED_BLIP_DIR = MODELS_DIR / "blip_finetuned_crime"
+FINETUNED_BLIP_DIR = MODELS_DIR / "drafts" / "blip_finetuned_crime"
 BLIP_SAFETENSORS_PATH = MODELS_DIR / "blip_finetuned_fp16.safetensors"
 MULTI_HEAD_PATH = MODELS_DIR / "auto_head_multi.pth"
 BINARY_HEAD_PATH = MODELS_DIR / "auto_head_binary.pth"
@@ -24,23 +24,30 @@ log = logging.getLogger("model_loader")
 
 def load_blip_model(device: torch.device):
     blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-    blip_model = None
+
+    # Use finetuned folder if it exists, otherwise fall back to base
+    model_source = str(FINETUNED_BLIP_DIR) if FINETUNED_BLIP_DIR.exists() else "Salesforce/blip-image-captioning-base"
+    log.info(f"Loading BLIP from: {model_source}")
 
     if device.type == "cuda":
         log.info("Applying 8-bit BitsAndBytes quantization for GPU.")
         bnb_config = BitsAndBytesConfig(load_in_8bit=True)
-        model_source = str(FINETUNED_BLIP_DIR) if FINETUNED_BLIP_DIR.exists() else "Salesforce/blip-image-captioning-base"
-        blip_model = BlipForConditionalGeneration.from_pretrained(model_source, quantization_config=bnb_config, device_map="auto")
+        blip_model = BlipForConditionalGeneration.from_pretrained(
+            model_source,
+            quantization_config=bnb_config,
+            device_map="auto"
+        )
     else:
-        log.info("Applying dynamic quantization for CPU.")
-        model_source = str(FINETUNED_BLIP_DIR) if FINETUNED_BLIP_DIR.exists() else "Salesforce/blip-image-captioning-base"
         blip_model = BlipForConditionalGeneration.from_pretrained(model_source)
-        blip_model = torch.quantization.quantize_dynamic(blip_model, {torch.nn.Linear}, dtype=torch.qint8)
+        blip_model = torch.quantization.quantize_dynamic(
+            blip_model, {torch.nn.Linear}, dtype=torch.qint8
+        )
         log.info("✅ BLIP model dynamically quantized for CPU.")
 
     blip_model.eval()
     log.info("✅ BLIP model loaded successfully.")
     return blip_processor, blip_model
+
 
 def load_all(device: str = "cpu"):
     if torch.cuda.is_available() and device == "cuda":

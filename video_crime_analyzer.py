@@ -190,7 +190,7 @@ def process_video(
         raise RuntimeError(f"Error opening video source: {video_path}")
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
-    FRAME_INTERVAL = 30   # DEV: 1 frame/min. Set to 30 for production.
+    FRAME_INTERVAL = 30 if max_frames is not None else 90  # DEV: 1 frame/min. Set to 30 for production.
     BUFFER_SECONDS = 5
     POST_EVENT_SECONDS = 5
     BUFFER_SIZE = int(fps * BUFFER_SECONDS)
