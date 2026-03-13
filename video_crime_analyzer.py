@@ -19,7 +19,7 @@ if PROJECT_ROOT not in sys.path:
 from models import CLIPMultiClassClassifier
 
 from scripts.constants import (
-    FRAME_INTERVAL, CAPTION_MAX_LENGTH, CAPTION_NUM_BEAMS,
+    CAPTION_MAX_LENGTH, CAPTION_NUM_BEAMS,
     CLIP_IMAGE_SIZE, CLIP_MEAN, CLIP_STD,
     IDX_TO_LABEL, NUM_CLASSES, BINARY_IDX_TO_LABEL,
     CRIME_OBJECTS, OBJ_CONF_THRESHOLD, VIDEO_DOM_THRESHOLD,
@@ -138,24 +138,23 @@ def _process_frame_batch(
                 current_frame_caption = caption
                 if crime_conf >= SINGLE_FRAME_ALERT_THRESHOLD:
                     print(f"    🚨 HIGH CONFIDENCE ALERT: Detected '{crime_label}' with {crime_conf:.2f} confidence in frame {frame_indices_batch[i]}.")
-            else:
-                print(f"DEBUG: Frame {frame_indices_batch[i]} analyzed — label='{crime_label}' conf={crime_conf:.2f} (below threshold, marked Normal)")
             detailed_analysis_ptr += 1
 
         batch_results["labels"].append(current_frame_label)
         batch_results["confs"].append(current_frame_conf)
         batch_results["captions"].append(current_frame_caption)
-        batch_results["objects"].append(batch_detected_objects_lists[i])  # keep as list per frame
+        batch_results["objects"].append(batch_detected_objects_lists[i])
 
     return batch_results
 
 
 def save_crime_clip(frame_buffer: list, future_frames: list, fps: float, crime_label: str, output_dir: str, yolo_model=None) -> str:
-    """Saves a crime clip with YOLO bounding boxes drawn on each frame."""
+    """Saves a crime clip with YOLO bounding boxes, re-encoded to H.264 for browser playback."""
     os.makedirs(output_dir, exist_ok=True)
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     safe_label = crime_label.replace(" ", "_")
-    clip_filename = f"clip_{safe_label}_{timestamp}.avi"
+    temp_path = os.path.join(output_dir, f"temp_{safe_label}_{timestamp}.avi")
+    clip_filename = f"clip_{safe_label}_{timestamp}.mp4"
     clip_path = os.path.join(output_dir, clip_filename)
 
     if not frame_buffer:
@@ -163,13 +162,13 @@ def save_crime_clip(frame_buffer: list, future_frames: list, fps: float, crime_l
 
     h, w = frame_buffer[0].shape[:2]
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    writer = cv2.VideoWriter(clip_path, fourcc, fps, (w, h))
+    writer = cv2.VideoWriter(temp_path, fourcc, fps, (w, h))
 
     for f in list(frame_buffer) + list(future_frames):
         annotated = f.copy()
         if yolo_model is not None:
-            results = yolo_model(f, verbose=False, conf=OBJ_CONF_THRESHOLD)
-            for result in results:
+            yolo_results = yolo_model(f, verbose=False, conf=OBJ_CONF_THRESHOLD)
+            for result in yolo_results:
                 if result.boxes:
                     for box in result.boxes:
                         x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
@@ -184,8 +183,23 @@ def save_crime_clip(frame_buffer: list, future_frames: list, fps: float, crime_l
         writer.write(annotated)
 
     writer.release()
-    print(f"✅ Crime clip saved: {clip_filename}")
-    return clip_filename
+
+    # Re-encode to H.264 MP4 for browser playback
+    import subprocess
+    result = subprocess.run([
+        "ffmpeg", "-y", "-i", temp_path,
+        "-vcodec", "libx264", "-crf", "23", "-preset", "fast",
+        "-movflags", "+faststart", clip_path
+    ], capture_output=True)
+
+    os.remove(temp_path)
+
+    if os.path.exists(clip_path):
+        print(f"✅ Crime clip saved: {clip_filename}")
+        return clip_filename
+    else:
+        print(f"⚠️ ffmpeg conversion failed: {result.stderr.decode()}")
+        return None
 
 def process_video(
     video_path: Union[str, int], classifier_model: Any, binary_classifier_model: Any,
@@ -199,24 +213,31 @@ def process_video(
     """
     if video_path == 0 or (isinstance(video_path, str) and str(video_path).isdigit()):
         cap = cv2.VideoCapture(int(video_path), cv2.CAP_DSHOW)
-        print("DEBUG: Opening webcam with DirectShow backend")
     else:
         cap = cv2.VideoCapture(video_path)
+
     if not cap.isOpened():
         raise RuntimeError(f"Error opening video source: {video_path}")
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
-    FRAME_INTERVAL = 30 if max_frames is not None else 90  # DEV: 1 frame/min. Set to 30 for production.
+
+    # FRAME_INTERVAL: 30 = every frame at 30fps (streams), 90 = every 3s (video files)
+    FRAME_INTERVAL = 30 if max_frames is not None else 90
     BUFFER_SECONDS = 5
     POST_EVENT_SECONDS = 5
     BUFFER_SIZE = int(fps * BUFFER_SECONDS)
     POST_EVENT_FRAMES = int(fps * POST_EVENT_SECONDS)
+    BATCH_SIZE = 8
+    # MOTION_THRESHOLD: low for streams (catch everything), high for video files (skip static)
+    MOTION_THRESHOLD = 10 if max_frames is not None else 500
+    # Cap clips per video to avoid session size issues
+    MAX_CLIPS = 3
 
     results = {
         "frame_labels": [], "frame_confs": [], "detected_objects": [],
         "captions": [], "video_fps": fps, "crime_clips": []
     }
-    BATCH_SIZE = 8
+
     frame_idx = 0
     pil_images_batch, cv_frames_batch, frame_indices_batch = [], [], []
 
@@ -227,13 +248,11 @@ def process_video(
     pre_event_snapshot = []
     pending_crime_label = None
     clipped_frame_indices = set()
-
     prev_gray_frame = None
-    MOTION_THRESHOLD = 10 if max_frames is not None else 500
 
     while True:
         if max_frames is not None and frame_idx >= max_frames:
-            print(f"DEBUG: Reached max frames ({max_frames}) for live stream. Generating report...")
+            print(f"Stream reached max frames ({max_frames}). Generating report...")
             break
 
         ret, frame = cap.read()
@@ -248,10 +267,10 @@ def process_video(
             post_event_frames_remaining -= 1
             if post_event_frames_remaining <= 0:
                 post_event_capture = False
-                if clips_output_dir and pending_crime_label:
+                if clips_output_dir and pending_crime_label and len(results["crime_clips"]) < MAX_CLIPS:
                     clip_filename = save_crime_clip(
                         pre_event_snapshot, post_event_buffer,
-                        fps, pending_crime_label, clips_output_dir,yolo_model=yolo_model
+                        fps, pending_crime_label, clips_output_dir, yolo_model=yolo_model
                     )
                     if clip_filename:
                         results["crime_clips"].append({
@@ -259,13 +278,8 @@ def process_video(
                             "crime_label": pending_crime_label,
                             "trigger_frame": frame_idx - POST_EVENT_FRAMES
                         })
-                
                 post_event_buffer = []
                 pending_crime_label = None
-                if max_frames is not None:
-                    print("DEBUG: Crime clip saved — stopping stream early.")
-                    cap.release()
-                    return results
 
         if frame_idx % FRAME_INTERVAL == 0:
             print(f"DEBUG: Sampling frame {frame_idx}")
@@ -279,7 +293,6 @@ def process_video(
                 movement_score = cv2.countNonZero(thresh)
                 if movement_score < MOTION_THRESHOLD:
                     motion_detected = False
-                    print(f"DEBUG: Frame {frame_idx} skipped (No Motion. Score: {movement_score})")
 
             prev_gray_frame = gray
 
@@ -312,14 +325,15 @@ def process_video(
                                 and lbl != "Normal Activity"
                                 and trigger_idx not in clipped_frame_indices
                                 and not post_event_capture
-                                and clips_output_dir):
+                                and clips_output_dir
+                                and len(results["crime_clips"]) < MAX_CLIPS):
                             print(f"🎬 Clip triggered: '{lbl}' at frame {trigger_idx}")
                             pre_event_snapshot = list(rolling_buffer)
                             clipped_frame_indices.add(trigger_idx)
                             if max_frames is not None:
-                                # Stream: save immediately with just pre-event buffer, return now
+                                # Stream: save immediately, return early
                                 clip_filename = save_crime_clip(
-                                    pre_event_snapshot, [], fps, lbl, clips_output_dir,yolo_model=yolo_model
+                                    pre_event_snapshot, [], fps, lbl, clips_output_dir, yolo_model=yolo_model
                                 )
                                 if clip_filename:
                                     results["crime_clips"].append({
@@ -327,11 +341,10 @@ def process_video(
                                         "crime_label": lbl,
                                         "trigger_frame": trigger_idx
                                     })
-                                print("DEBUG: Crime clip saved — stopping stream early.")
                                 cap.release()
                                 return results
                             else:
-                                # Video file: collect post-event frames as normal
+                                # Video: collect post-event frames then save
                                 post_event_capture = True
                                 post_event_frames_remaining = POST_EVENT_FRAMES
                                 pending_crime_label = lbl
@@ -340,7 +353,7 @@ def process_video(
 
         frame_idx += 1
 
-    # --- Process remaining frames ---
+    # --- Process remaining frames in batch ---
     if pil_images_batch:
         batch_output = _process_frame_batch(
             pil_images_batch, cv_frames_batch, frame_indices_batch,
@@ -358,18 +371,33 @@ def process_video(
                     and lbl != "Normal Activity"
                     and trigger_idx not in clipped_frame_indices
                     and not post_event_capture
-                    and clips_output_dir):
+                    and clips_output_dir
+                    and len(results["crime_clips"]) < MAX_CLIPS):
                 print(f"🎬 Clip triggered (final batch): '{lbl}' at frame {trigger_idx}")
                 pre_event_snapshot = list(rolling_buffer)
-                if clips_output_dir and pending_crime_label is None:
-                    clip_filename = save_crime_clip(pre_event_snapshot, [], fps, lbl, clips_output_dir, yolo_model=yolo_model)
-                    if clip_filename:
-                        results["crime_clips"].append({
-                            "filename": clip_filename,
-                            "crime_label": lbl,
-                            "trigger_frame": trigger_idx
-                        })
+                clip_filename = save_crime_clip(
+                    pre_event_snapshot, [], fps, lbl, clips_output_dir, yolo_model=yolo_model
+                )
+                if clip_filename:
+                    results["crime_clips"].append({
+                        "filename": clip_filename,
+                        "crime_label": lbl,
+                        "trigger_frame": trigger_idx
+                    })
                 clipped_frame_indices.add(trigger_idx)
+
+    # --- Save pending clip if video ended mid-collection ---
+    if post_event_capture and pending_crime_label and clips_output_dir and len(results["crime_clips"]) < MAX_CLIPS:
+        clip_filename = save_crime_clip(
+            pre_event_snapshot, post_event_buffer,
+            fps, pending_crime_label, clips_output_dir, yolo_model=yolo_model
+        )
+        if clip_filename:
+            results["crime_clips"].append({
+                "filename": clip_filename,
+                "crime_label": pending_crime_label,
+                "trigger_frame": frame_idx
+            })
 
     cap.release()
     return results
@@ -409,10 +437,10 @@ def summarize_captions(caps: list, detected_objects: list, summarizer: Any, over
     if detected_objects and isinstance(detected_objects[0], list):
         detected_objects = [obj for sublist in detected_objects for obj in sublist]
 
-    unique_tracked_objects = list(set([obj for obj in detected_objects if "ID:" in obj]))
+    unique_tracked_objects = list(set([obj for obj in detected_objects if "ID:" in obj.upper()]))
 
     if unique_tracked_objects:
-        object_context = f" Tracked entities involved in the scene include: {', '.join(unique_tracked_objects)}."
+        object_context = f" The scene involves {len(unique_tracked_objects)} tracked individuals identified across multiple frames."
         text = base_text + object_context
     else:
         text = base_text
@@ -427,7 +455,6 @@ def summarize_captions(caps: list, detected_objects: list, summarizer: Any, over
     try:
         dynamic_max = min(120, int(word_count * 1.5))
         dynamic_min = min(30, int(word_count * 0.5))
-        # Clamp max_length to input length to suppress BART warning
         dynamic_max = min(dynamic_max, word_count)
         summary = summarizer(text, max_length=dynamic_max, min_length=dynamic_min, do_sample=False)[0]["summary_text"]
         return summary

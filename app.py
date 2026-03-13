@@ -254,7 +254,7 @@ def index():
                 'analysis_duration': f"{total_duration:.2f}",
                 'video_url': safe_video_url,
                 'is_stream': is_stream,
-                'crime_clips': analysis_result.get('crime_clips', [])
+                'crime_clips': analysis_result.get('crime_clips', [])[:3],  # max 3 clips in session
             }
 
             analysis_history.insert_one({
