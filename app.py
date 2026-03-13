@@ -211,7 +211,10 @@ def index():
             if not analysis_result or not analysis_result.get("captions"):
                 flash("Video analysis failed. The video might be too short or corrupted.", 'error')
                 if not is_stream and isinstance(video_source, str) and os.path.exists(video_source):
-                    os.remove(video_source)
+                    try:
+                        os.remove(video_source)
+                    except PermissionError:
+                        pass
                 return redirect(url_for('index'))
 
             video_crime_class, crime_dominance = aggregate_labels(
@@ -275,7 +278,10 @@ def index():
             print(f"ERROR during video analysis: {e}", file=sys.stderr)
             traceback.print_exc()
             if not is_stream and isinstance(video_source, str) and os.path.exists(video_source):
-                os.remove(video_source)
+                try:
+                    os.remove(video_source)
+                except PermissionError:
+                    pass
             return redirect(url_for('index'))
 
     return render_template('index.html', username=session.get('username'))

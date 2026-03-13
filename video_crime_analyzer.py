@@ -10,7 +10,7 @@ from collections import Counter, deque
 from ultralytics import YOLO
 from typing import Tuple, List, Dict, Any, Union
 
-
+FFMPEG_PATH = r"C:\Users\wrish\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.0.1-full_build\bin\ffmpeg.exe"
 # --- Project Setup ---
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
@@ -187,7 +187,7 @@ def save_crime_clip(frame_buffer: list, future_frames: list, fps: float, crime_l
     # Re-encode to H.264 MP4 for browser playback
     import subprocess
     result = subprocess.run([
-        "ffmpeg", "-y", "-i", temp_path,
+        FFMPEG_PATH, "-y", "-i", temp_path,
         "-vcodec", "libx264", "-crf", "23", "-preset", "fast",
         "-movflags", "+faststart", clip_path
     ], capture_output=True)
