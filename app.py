@@ -248,6 +248,16 @@ def index():
             # --- Safe video URL: no file saved for streams ---
             safe_video_url = "#" if is_stream else url_for('uploaded_file', filename=filename)
 
+            session['pdf_export_data'] = {
+                'video_file_name': filename,
+                'overall_crime': video_crime_class,
+                'confidence_score': crime_dominance,
+                'detected_objects': top_objects_display,
+                'summary': video_summary,
+                'analysis_duration': f"{total_duration:.2f}",
+                'crime_clips': analysis_result.get('crime_clips', [])[:3],
+            }
+
             session['analysis_results'] = {
                 'video_file_name': filename,
                 'overall_crime': video_crime_class,
@@ -294,6 +304,119 @@ def result():
         flash('No analysis results found. Please upload a video first.', 'error')
         return redirect(url_for('index'))
     return render_template('result.html', username=session.get('username'), **analysis_data)
+
+@app.route('/export-pdf')
+@login_required
+def export_pdf():
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.units import cm
+    from flask import send_file
+    import io
+
+    data = session.get('pdf_export_data')
+    if not data:
+        flash('No analysis data available for export. Please run an analysis first.', 'error')
+        return redirect(url_for('index'))
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            rightMargin=2*cm, leftMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
+
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Title
+    title_style = ParagraphStyle('Title', parent=styles['Title'],
+                                  fontSize=24, textColor=colors.HexColor('#0f56eb'),
+                                  spaceAfter=6)
+    elements.append(Paragraph("SceneSolver — Forensic Analysis Report", title_style))
+    elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#0f56eb')))
+    elements.append(Spacer(1, 0.4*cm))
+
+    # Metadata
+    meta_style = ParagraphStyle('Meta', parent=styles['Normal'],
+                                 fontSize=10, textColor=colors.HexColor('#666666'))
+    elements.append(Paragraph(f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", meta_style))
+    elements.append(Paragraph(f"Analyst: {session.get('username', 'Unknown')}", meta_style))
+    elements.append(Paragraph(f"File: {data.get('video_file_name', 'N/A')}", meta_style))
+    elements.append(Spacer(1, 0.6*cm))
+
+    # Crime verdict
+    verdict_color = colors.HexColor('#dc2626') if 'Normal' not in data.get('overall_crime', '') else colors.HexColor('#16a34a')
+    verdict_style = ParagraphStyle('Verdict', parent=styles['Normal'],
+                                    fontSize=16, textColor=verdict_color,
+                                    spaceAfter=4, fontName='Helvetica-Bold')
+    elements.append(Paragraph("VERDICT", styles['Heading2']))
+    elements.append(Paragraph(data.get('overall_crime', 'N/A'), verdict_style))
+
+    conf = data.get('confidence_score', 0)
+    elements.append(Paragraph(f"Confidence Score: {conf * 100:.1f}%", styles['Normal']))
+    elements.append(Paragraph(f"Analysis Duration: {data.get('analysis_duration', 'N/A')}s", styles['Normal']))
+    elements.append(Spacer(1, 0.6*cm))
+
+    # Detected objects table
+    elements.append(Paragraph("KEY OBJECTS DETECTED", styles['Heading2']))
+    objects = data.get('detected_objects', [])
+    if objects:
+        table_data = [['Object', 'Frequency']]
+        for obj in objects:
+            parts = obj.rsplit('(', 1)
+            label = parts[0].strip()
+            freq = '(' + parts[1] if len(parts) > 1 else ''
+            table_data.append([label, freq])
+        t = Table(table_data, colWidths=[10*cm, 6*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f56eb')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#f8f9fa'), colors.white]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#dee2e6')),
+            ('PADDING', (0, 0), (-1, -1), 8),
+        ]))
+        elements.append(t)
+    else:
+        elements.append(Paragraph("No significant objects detected.", styles['Normal']))
+    elements.append(Spacer(1, 0.6*cm))
+
+    # Summary
+    elements.append(Paragraph("COMPREHENSIVE INCIDENT SUMMARY", styles['Heading2']))
+    summary_style = ParagraphStyle('Summary', parent=styles['Normal'],
+                                    fontSize=11, leading=16,
+                                    borderPad=8, borderColor=colors.HexColor('#0f56eb'),
+                                    borderWidth=1, borderRadius=4)
+    elements.append(Paragraph(data.get('summary', 'No summary available.'), summary_style))
+    elements.append(Spacer(1, 0.6*cm))
+
+    # Crime clips info
+    clips = data.get('crime_clips', [])
+    if clips:
+        elements.append(Paragraph("EXTRACTED CRIME CLIPS", styles['Heading2']))
+        for i, clip in enumerate(clips, 1):
+            elements.append(Paragraph(
+                f"Clip {i}: {clip.get('crime_label', 'Unknown')} — Triggered at frame {clip.get('trigger_frame', 'N/A')} — File: {clip.get('filename', 'N/A')}",
+                styles['Normal']
+            ))
+        elements.append(Spacer(1, 0.4*cm))
+
+    # Footer
+    elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.grey))
+    elements.append(Spacer(1, 0.2*cm))
+    footer_style = ParagraphStyle('Footer', parent=styles['Normal'],
+                                   fontSize=8, textColor=colors.grey, alignment=1)
+    elements.append(Paragraph("Generated by SceneSolver — AI-Powered Forensic Video Analysis", footer_style))
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    return send_file(buffer, as_attachment=True,
+                     download_name=f"SceneSolver_Report_{timestamp}.pdf",
+                     mimetype='application/pdf')
 
 @app.route('/uploads/<filename>')
 @login_required
