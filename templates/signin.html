@@ -207,6 +207,22 @@
                 <p>Don't have an account? <a href="{{ url_for('register') }}" class="text-primary-blue hover:text-secondary-blue-light font-medium">Register here</a></p>
                 <p class="mt-2"><a href="#" class="text-primary-blue hover:text-secondary-blue-light font-medium">Forgot password?</a></p>
             </div>
+
+            <!-- Demo Banner -->
+            <div class="mt-6 border-t border-gray-700/50 pt-5">
+                <p class="text-gray-500 text-xs uppercase tracking-widest mb-3">Just browsing?</p>
+                <a href="{{ url_for('demo') }}"
+                   class="w-full inline-flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-semibold text-sm transition-all duration-300"
+                   style="background: rgba(15,86,235,0.12); border: 1px solid rgba(15,86,235,0.35); color: #60a5fa;"
+                   onmouseover="this.style.background='rgba(15,86,235,0.22)'; this.style.boxShadow='0 0 20px rgba(15,86,235,0.3)'"
+                   onmouseout="this.style.background='rgba(15,86,235,0.12)'; this.style.boxShadow='none'">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    View Live Demo — no account needed
+                </a>
+            </div>
         </div>
     </div>
 

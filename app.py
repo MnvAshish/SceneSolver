@@ -29,8 +29,10 @@ app.secret_key = os.environ.get('SECRET_KEY', 'a_default_fallback_key_for_dev')
 app.permanent_session_lifetime = timedelta(hours=1)
 app.config['UPLOAD_FOLDER'] = os.path.join(PROJECT_ROOT, 'static', 'uploads')
 app.config['CLIPS_FOLDER'] = os.path.join(PROJECT_ROOT, 'static', 'uploads', 'clips')
+app.config['DEMO_FOLDER'] = os.path.join(PROJECT_ROOT, 'static', 'demo')
 os.makedirs(os.path.join(PROJECT_ROOT, 'static', 'uploads', 'clips'), exist_ok=True)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs(app.config['DEMO_FOLDER'], exist_ok=True)
 
 # --- Database Connection ---
 try:
@@ -100,10 +102,46 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# --- Pre-computed Demo Data (no models needed) ---
+DEMO_DATA = {
+    'video_file_name': 'demo_fighting_clip.mp4',
+    'overall_crime': 'Fighting',
+    'confidence_score': 1.0,
+    'detected_objects': [
+        'person (seen in 6 frames)',
+        'person (seen in 4 frames)',
+        'person (seen in 3 frames)',
+    ],
+    'summary': (
+        'The footage captures a violent altercation between multiple individuals outside a '
+        'commercial premises. One suspect delivers a powerful blow directly at an opponent '
+        'near the storefront entrance. Five individuals are tracked across multiple frames '
+        'with consistent IDs, indicating sustained confrontation. Law enforcement response '
+        'is advised. Incident classified as Fighting with high confidence.'
+    ),
+    'analysis_duration': '79.82',
+    'video_url': '/static/demo/demo_fighting.mp4',
+    'is_stream': False,
+    'crime_clips': [{
+        'filename': 'demo_clip_Fighting.mp4',
+        'crime_label': 'Fighting',
+        'trigger_frame': 0
+    }],
+}
+
 # --- Routes ---
 @app.route('/')
 def home():
     return redirect(url_for('signin'))
+
+@app.route('/demo')
+def demo():
+    """Public demo — no login required. Uses pre-computed results so no GPU/models needed."""
+    return render_template('result.html', username='Guest', **DEMO_DATA)
+
+@app.route('/static/demo/<filename>')
+def serve_demo_file(filename):
+    return send_from_directory(app.config['DEMO_FOLDER'], filename)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
