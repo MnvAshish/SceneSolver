@@ -15,6 +15,9 @@ scripts/drafts/
 # Uploaded user videos
 static/uploads/
 
+# Environment secrets — never commit the real .env
+.env
+
 # IDE and OS specific files
 .vscode/
 .idea/

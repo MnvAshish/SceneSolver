@@ -1,9 +1,13 @@
-﻿# requirements-prod.txt
+# SceneSolver — Python Dependencies
 
 # --- Web Framework & Server ---
 Flask==3.1.1
-gunicorn==22.0.0 # Added for production deployment on Linux
+Werkzeug>=3.1.3          # Included with Flask; listed explicitly for clarity
+gunicorn==22.0.0         # Production WSGI server (Linux/Render deployment)
 pymongo==4.13.2
+
+# --- PDF Export ---
+reportlab==4.4.10
 
 # --- Core AI & Deep Learning Libraries ---
 torch==2.3.1
@@ -14,19 +18,17 @@ clip @ git+https://github.com/openai/CLIP.git@dcba3cb2e2827b402d2701e7e1c7d9fed8
 
 # --- AI Model Utilities & Optimizations ---
 accelerate==1.8.1
-bitsandbytes==0.46.1
+bitsandbytes==0.46.1     # Quantization support (GPU-only on Windows; skip if CPU-only)
 safetensors==0.6.2
 sentencepiece==0.2.0
 
 # --- Video & Image Processing ---
-# Using the headless version is better for servers as it doesn't install GUI packages.
+# Using headless build — avoids pulling in GUI/display packages on servers
 opencv-python-headless==4.11.0.86
 Pillow==11.2.1
 
-# --- Core Dependencies of the Above Libraries ---
+# --- Core / Shared Dependencies ---
 numpy==1.26.4
 PyYAML==6.0.2
 requests==2.32.3
-
 tqdm==4.67.1
-
