@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: scenesolver-demo
+    runtime: python
+    buildCommand: pip install -r requirements_demo.txt
+    startCommand: gunicorn app_demo:app --bind 0.0.0.0:$PORT --workers 1 --timeout 60
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true        # Render auto-generates a secure random value
+      - key: MONGO_URI
+        sync: false                # Set this manually in Render dashboard (optional)
+    plan: free
