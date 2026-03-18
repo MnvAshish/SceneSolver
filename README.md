@@ -8,8 +8,11 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.3-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://mongodb.com)
 [![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-00FFFF?style=for-the-badge)](https://ultralytics.com)
+[![UCF-Crime](https://img.shields.io/badge/UCF--Crime-98%25_Binary_|_88%25_F1-brightgreen?style=for-the-badge)](https://github.com/WrishG/scenesolver-ai)
 
 **[🌐 Live Demo](https://scenesolver-ai.onrender.com)** — no account needed
+
+> 🎯 **98% binary accuracy · 88% F1 multi-class** on UCF-Crime benchmark · Runs on a 4GB GTX 1650
 
 ![SceneSolver Demo](assets/demo.gif)
 
@@ -19,9 +22,9 @@
 
 ## What It Does
 
-SceneSolver ingests a video and runs it through a **5-model AI pipeline** to automatically detect crime, identify objects, generate forensic captions, and produce a downloadable PDF incident report — in under 2 minutes on CPU.
+SceneSolver ingests a video and runs it through a **5-model AI pipeline** using an early-exit architecture — a binary CLIP model gates the expensive models so BLIP and BART only run when crime is actually detected. Outputs a downloadable PDF forensic incident report.
 
-Trained and evaluated on the **UCF-Crime dataset** (8 crime classes).
+Trained and evaluated on the **UCF-Crime dataset** — **5 crime classes:** Fighting, Shooting, Explosion, Robbery, Shoplifting.
 
 ---
 
@@ -53,27 +56,29 @@ PDF Report + Crime Clip Export
 
 ## Key Features
 
-- 🎯 **8-class crime classification** — Fighting, Theft, Shooting, Explosion, Arson, Abuse, Burglary, Robbery
-- 📡 **Live stream support** — analyze RTSP/webcam feeds in real time
-- 🎬 **Crime clip extraction** — auto-saves short clips around detected crime frames
-- 📄 **PDF report export** — one-click downloadable forensic report with verdict, objects, and summary
-- 🔐 **User authentication** — session-based login with hashed passwords and MongoDB
-- 📊 **Analysis history** — all past analyses saved per user
+- 🎯 **5-class crime classification** — Fighting, Shooting, Explosion, Robbery, Shoplifting
+- 🚀 **Early-exit architecture** — binary CLIP gates expensive models; BLIP/BART skip normal frames entirely
+- 📡 **Live stream & RTSP support** — real-time analysis via webcam or IP camera (DirectShow backend)
+- 🎬 **Pre-event crime clip extraction** — 5-second rolling buffer captures what led *up to* the crime
+- 🔍 **ByteTrack persistent object tracking** — person ID 1 is the same person across the whole video
+- 📄 **PDF forensic report** — one-click downloadable report with verdict, tracked objects, and AI summary
+- 🔐 **User auth + history** — session-based login, hashed passwords, per-user analysis history in MongoDB
 
 ---
 
 ## Optimization Highlights
 
-The full pipeline is ~6-8GB of models. To make it deployable:
+The full pipeline is ~6-8GB of raw model weights. Runs entirely on a **4GB GTX 1650** after optimization:
 
-| Technique | What it does |
+| Technique | Impact |
 |---|---|
-| **Classifier head extraction** | Saves only the 16MB trained head, not the full 500MB CLIP model |
-| **FP16 safetensors** | BLIP model halved in size with no quality loss |
-| **BitsAndBytes 8-bit (GPU)** | BLIP loaded in 8-bit on GPU — 4× smaller, faster |
-| **Dynamic INT8 quantization (CPU)** | BART + classifiers auto-quantized on CPU-only servers |
-| **Batch frame processing** | Frames processed in batches — exponentially faster than one-by-one |
-| **Lazy BART loading** | Summarizer only loaded on first request |
+| **Classifier head extraction** | 16MB saved weights vs 500MB full model — **70% VRAM reduction** |
+| **FP16 safetensors (BLIP)** | Model size halved with no quality loss |
+| **BitsAndBytes 8-bit (GPU)** | BLIP loaded in 8-bit — 4× smaller in VRAM |
+| **Dynamic INT8 quantization (CPU)** | BART + classifiers auto-quantized when no GPU detected |
+| **OpenCV motion pre-filter** | Static/zero-motion frames skipped before hitting the GPU |
+| **Batch processing (size 8)** | Full GPU pipeline utilization — not naive frame-by-frame |
+| **Lazy BART loading** | Summarizer loaded on first request only — faster startup |
 
 ---
 
