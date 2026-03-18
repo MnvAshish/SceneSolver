@@ -70,7 +70,7 @@ DEMO_DATA = {
 
 @app.route('/')
 def home():
-    return redirect(url_for('demo'))
+    return render_template('signin.html')
 
 
 @app.route('/demo')
