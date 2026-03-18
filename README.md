@@ -52,7 +52,26 @@ Video Input
 PDF Report + Crime Clip Export
 ```
 
+### System Architecture
+
+![System Architecture](assets/SYSTEM%20ARCHITECHURE.jpg)
+
 ---
+
+## Results
+
+### Training — Multi-class Classifier (5 Crime Types)
+
+![Training Curves](assets/5%20clss%20clssifier%20loss.png)
+
+### Per-class Metrics
+
+| | Binary Classifier | Multi-class Classifier |
+|---|---|---|
+| **Metric chart** | ![Binary Metrics](assets/Binary_Classifier_-Crime_vs._Normal-_metrics.png) | ![Multi-class Metrics](assets/Multi-class_Classifier_-5_Crime_Types-_metrics.png) |
+| **Confusion matrix** | ![Binary CM](assets/Binary_Classifier_-Crime_vs._Normal-_confusion_matrix.png) | ![Multi-class CM](assets/Multi-class_Classifier_-5_Crime_Types-_confusion_matrix.png) |
+
+
 
 ## Key Features
 
