@@ -1,8 +1,10 @@
+<div align="center">
 
 # SceneSolver
-Video analyzing application 
-=======
-<div align="center">
+
+Video analyzing application
+
+</div>
 
 # 🔍 SceneSolver
 ### AI-Powered Forensic Video Analysis
