@@ -1,14 +1,18 @@
 <div align="center">
 
-# SceneSolver
+<h1>🔍 SceneSolver</h1>
 
-Video analyzing application
+<p><b>AI-Powered Forensic Video Analysis</b></p>
 
+<p>Video analyzing application</p>
 
-
-# 🔍 SceneSolver
-### AI-Powered Forensic Video Analysis
 </div>
+
+<br>
+
+> 🎯 **98% binary accuracy · 88% F1 multi-class** on UCF-Crime benchmark · Runs on a 4GB GTX 1650
+
+![SceneSolver Demo](assets/demo.gif)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.1-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.3-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
