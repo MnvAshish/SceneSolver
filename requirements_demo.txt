@@ -1,0 +1,7 @@
+# SceneSolver Demo Deployment — Minimal Dependencies
+# Use this for Render/Railway deployment (NOT the full app)
+# Full app deps are in requirements.txt
+
+Flask==3.1.1
+gunicorn==22.0.0
+pymongo==4.13.2   # Optional — only needed if MONGO_URI is set for feedback
