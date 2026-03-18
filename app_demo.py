@@ -84,6 +84,48 @@ def serve_demo_file(filename):
     return send_from_directory(DEMO_FOLDER, filename)
 
 
+# ── Stub routes so result.html / signin.html url_for() calls don't crash ─────
+
+@app.route('/frontpage')
+def frontpage():
+    return redirect(url_for('demo'))
+
+@app.route('/index')
+def index():
+    return redirect(url_for('demo'))
+
+@app.route('/history')
+def history():
+    return redirect(url_for('demo'))
+
+@app.route('/signin')
+def signin():
+    return redirect(url_for('demo'))
+
+@app.route('/register')
+def register():
+    return redirect(url_for('demo'))
+
+@app.route('/logout')
+def logout():
+    return redirect(url_for('demo'))
+
+@app.route('/export-pdf')
+def export_pdf():
+    return redirect(url_for('demo'))
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return redirect(url_for('demo'))
+
+@app.route('/clips/<filename>')
+def serve_clip(filename):
+    # Serve from demo folder — demo clips live there
+    return send_from_directory(DEMO_FOLDER, filename)
+
+
+# ── Feedback ─────────────────────────────────────────────────────────────────
+
 @app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
     import datetime
@@ -111,8 +153,9 @@ def feedback():
     return render_template('feedback.html', username='Guest')
 
 
-# ── Entry point ──────────────────────────────────────────────────────────────
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
